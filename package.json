@@ -1,0 +1,19 @@
+{
+  "name": "virtugallery",
+  "version": "1.0.0",
+  "description": "Curated Fine Art & Contemporary Marketplace Platform",
+  "main": "index.php",
+  "scripts": {
+    "start": "php -S 127.0.0.1:8000 -c php.ini",
+    "dev": "php -S 127.0.0.1:8000 -c php.ini"
+  },
+  "keywords": [
+    "art-gallery",
+    "marketplace",
+    "contemporary-art",
+    "php",
+    "tailwind"
+  ],
+  "author": "VirtuGallery Collective",
+  "license": "MIT"
+}

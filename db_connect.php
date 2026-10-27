@@ -1,26 +1,48 @@
 <?php
-$host = '127.0.0.1';
-$dbname = 'virtugallery';
-$username = 'root';
-$password = '';
+// Universal Cloud & Serverless Database Connector for VirtuGallery
 
 $pdo = null;
 
-// 1. Try MySQL first if available
+// Parse DATABASE_URL if available (standard on Railway, Heroku, Supabase, etc.)
+$databaseUrl = getenv('DATABASE_URL') ?: getenv('MYSQL_URL');
+if ($databaseUrl) {
+    $dbParts = parse_url($databaseUrl);
+    $host = $dbParts['host'] ?? '127.0.0.1';
+    $port = $dbParts['port'] ?? 3306;
+    $dbname = ltrim($dbParts['path'] ?? 'virtugallery', '/');
+    $username = $dbParts['user'] ?? 'root';
+    $password = $dbParts['pass'] ?? '';
+} else {
+    $host = getenv('DB_HOST') ?: getenv('MYSQLHOST') ?: getenv('MYSQL_HOST') ?: '127.0.0.1';
+    $port = getenv('DB_PORT') ?: getenv('MYSQLPORT') ?: getenv('MYSQL_PORT') ?: 3306;
+    $dbname = getenv('DB_NAME') ?: getenv('MYSQLDATABASE') ?: getenv('MYSQL_DATABASE') ?: 'virtugallery';
+    $username = getenv('DB_USER') ?: getenv('MYSQLUSER') ?: getenv('MYSQL_USER') ?: 'root';
+    $password = getenv('DB_PASS') !== false ? getenv('DB_PASS') : (getenv('MYSQLPASSWORD') !== false ? getenv('MYSQLPASSWORD') : (getenv('MYSQL_PASSWORD') !== false ? getenv('MYSQL_PASSWORD') : ''));
+}
+
+// 1. Attempt MySQL connection
 try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $username, $password, [
+    $pdo = new PDO("mysql:host=$host;port=$port;dbname=$dbname;charset=utf8mb4", $username, $password, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_TIMEOUT => 2
     ]);
 } catch (Exception $e) {
-    // 2. Fall back to local SQLite database seamlessly
-    $dbPath = __DIR__ . DIRECTORY_SEPARATOR . 'virtugallery.db';
+    // 2. Fall back to SQLite (with Vercel Serverless / Read-Only Filesystem support)
+    $isServerless = getenv('VERCEL') || getenv('AWS_LAMBDA_FUNCTION_NAME') || !is_writable(__DIR__);
+    $dbDir = $isServerless ? sys_get_temp_dir() : __DIR__;
+    $dbPath = $dbDir . DIRECTORY_SEPARATOR . 'virtugallery.db';
+
+    // If on serverless and tmp db does not exist, copy from bundle if available
+    $bundledDb = __DIR__ . DIRECTORY_SEPARATOR . 'virtugallery.db';
+    if ($isServerless && !file_exists($dbPath) && file_exists($bundledDb) && filesize($bundledDb) > 0) {
+        @copy($bundledDb, $dbPath);
+    }
+
     $needInit = !file_exists($dbPath) || filesize($dbPath) === 0;
 
     $pdo = new PDO("sqlite:" . $dbPath);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-    // Initialize schema if needed
     initSqliteDatabase($pdo, $needInit);
 }
 
@@ -113,7 +135,6 @@ function initSqliteDatabase($pdo, $needInit = false) {
         );
     ");
 
-    // Check if users exist; if not, seed data
     $userCount = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
     if ($userCount == 0) {
         $defaultPassword = password_hash('Password123!', PASSWORD_BCRYPT);

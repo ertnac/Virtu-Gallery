@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "functions": {
+    "api/**/*.php": {
+      "runtime": "vercel-php@0.7.3"
+    },
+    "*.php": {
+      "runtime": "vercel-php@0.7.3"
+    },
+    "Pages/**/*.php": {
+      "runtime": "vercel-php@0.7.3"
+    },
+    "admin/**/*.php": {
+      "runtime": "vercel-php@0.7.3"
+    },
+    "shanaya/**/*.php": {
+      "runtime": "vercel-php@0.7.3"
+    }
+  },
+  "routes": [
+    {
+      "src": "/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "/uploads/$1"
+    },
+    {
+      "src": "/Pages/profile_image/(.*)",
+      "dest": "/Pages/profile_image/$1"
+    },
+    {
+      "src": "/Pages/(.*)",
+      "dest": "/Pages/$1"
+    },
+    {
+      "src": "/admin/(.*)",
+      "dest": "/admin/$1"
+    },
+    {
+      "src": "/shanaya/(.*)",
+      "dest": "/shanaya/$1"
+    },
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/run_server.bat",
+      "status": 404
+    },
+    {
+      "src": "/",
+      "dest": "/index.php"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}
