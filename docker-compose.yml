@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: virtugallery_web
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    environment:
+      - MYSQL_HOST=db
+      - MYSQL_DATABASE=virtugallery
+      - MYSQL_USER=virtu_user
+      - MYSQL_PASSWORD=virtu_pass
+    volumes:
+      - uploads_data:/var/www/html/uploads
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.0
+    container_name: virtugallery_db
+    restart: unless-stopped
+    environment:
+      - MYSQL_ROOT_PASSWORD=root_secure_pass
+      - MYSQL_DATABASE=virtugallery
+      - MYSQL_USER=virtu_user
+      - MYSQL_PASSWORD=virtu_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  uploads_data:
+  db_data:
