@@ -531,7 +531,7 @@
                     <li><a href="../index.php#features">Features</a></li>
                     <li><a href="../index.php#gallery">Gallery</a></li>
                     <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="">About Us</a></li>
+                    <li><a href="../index.php#about">About Us</a></li>
                 </ul>
             </div>
         <div class="logo">VirtuGallery</div>
@@ -756,13 +756,12 @@
             const philippineAddresses = {
                 luzon: {
                     "Batangas": {
-                        "Batangas City": ["Barangay 1", "Barangay 2", "Barangay 3"],
-                        "Lipa City": ["Barangay A", "Barangay B", "Barangay C"],
-                        "Tanauan City": ["Barangay X", "Barangay Y", "Barangay Z"]
+                        "Batangas City": ["lemery", "talisay"],
+                        "Tanauan City": ["Barangay Talaga", "Barangay Ambulong", "Banadero"]
                     },
                     "Laguna": {
                         "Calamba": ["Barangay Uno", "Barangay Dos", "Barangay Tres"],
-                        "San Pablo": ["Barangay Alpha", "Barangay Beta", "Barangay Gamma"]
+                        "San Pablo": ["San Jose", "Sta Elena", "Sto Cristo"]
                     }
                 },
                 visayas: {
@@ -915,7 +914,7 @@
 
                     console.log('Order Data:', orderData);
                     alert('Your order has been placed successfully! You will pay cash upon delivery.');
-                    window.location.href = 'marketplacePage.html';
+                    window.location.href = '../Pages/Marketplace.php';
                 } else {
                     alert('Please fill in all required fields.');
                 }
@@ -924,7 +923,7 @@
             // Cancel Button
             cancelBtn.addEventListener('click', function () {
                 if (confirm('Are you sure you want to cancel this order?')) {
-                    window.location.href = 'cart.html';
+                    window.location.href = '../Pages/cart.html';
                 }
             });
         });

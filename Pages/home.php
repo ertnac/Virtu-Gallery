@@ -1,9 +1,9 @@
-﻿<?php
+<?php
 session_start();
-require_once '../db_connect.php';
+require_once __DIR__ . '/../db_connect.php';
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ../login.php');
+    header('Location: ../index.php');
     exit;
 }
 
@@ -59,7 +59,8 @@ try {
     <title>Virtu Gallery</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&family=Roboto:wght@400;500;700&display=swap"
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&family=Roboto:wght@400;500;700&display=swap"
         rel="stylesheet">
 
     <style>
@@ -86,8 +87,6 @@ try {
             background-color: #f9f9f9;
         }
 
-        h1,
-        h2,
         h3 {
             font-family: 'Playfair Display', serif;
             font-weight: 700;
@@ -785,7 +784,6 @@ try {
 
         /* Artist Profile Overlay Styles */
         .artist-profile-overlay,
-        .comment-overlay,
         .likes-overlay {
             position: fixed;
             top: 0;
@@ -802,7 +800,6 @@ try {
         }
 
         .artist-profile-overlay.active,
-        .comment-overlay.active,
         .likes-overlay.active {
             right: 0;
         }
@@ -968,104 +965,6 @@ try {
             font-size: 1.2rem;
         }
 
-        /* Comment Overlay Styles */
-        .comment-overlay .overlay-content {
-            padding: 15px;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .comment-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid #eee;
-            margin-bottom: 15px;
-        }
-
-        .comment-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.2rem;
-            color: #202b1d;
-        }
-
-        .comments-list {
-            flex: 1;
-            overflow-y: auto;
-            margin-bottom: 15px;
-        }
-
-        .comment-item {
-            display: flex;
-            padding: 10px 0;
-            border-bottom: 1px solid #f5f5f5;
-        }
-
-        .comment-avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 10px;
-        }
-
-        .comment-content {
-            flex: 1;
-        }
-
-        .comment-user {
-            font-weight: 600;
-            font-size: 0.9rem;
-            margin-bottom: 5px;
-        }
-
-        .comment-text {
-            font-size: 0.85rem;
-            line-height: 1.4;
-            margin-bottom: 5px;
-        }
-
-        .comment-time {
-            font-size: 0.7rem;
-            color: #888;
-        }
-
-        .comment-delete {
-            color: #ff4d4f;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 0.8rem;
-            margin-left: 10px;
-        }
-
-        .comment-form {
-            display: flex;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
-
-        .comment-input {
-            flex: 1;
-            border: 1px solid #ddd;
-            border-radius: 20px;
-            padding: 8px 15px;
-            font-size: 0.9rem;
-            outline: none;
-        }
-
-        .comment-submit {
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 8px 15px;
-            margin-left: 10px;
-            cursor: pointer;
-            font-size: 0.9rem;
-        }
-
         /* Likes Overlay Styles */
         .likes-overlay .overlay-content {
             padding: 15px;
@@ -1195,6 +1094,474 @@ try {
             color: #202b1d;
             text-decoration: underline;
         }
+
+        /* Upload Artwork Modal Styles */
+        .upload-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .upload-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .upload-modal-content {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            width: 100%;
+            max-width: 650px;
+            max-height: 90vh;
+            overflow-y: auto;
+            padding: 40px;
+            position: relative;
+        }
+
+        .upload-modal h2 {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary-color);
+            font-size: 2rem;
+            margin-bottom: 30px;
+            text-align: center;
+            position: relative;
+            padding-bottom: 15px;
+        }
+
+        .upload-modal h2::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: var(--accent-color);
+        }
+
+        .upload-modal label {
+            display: block;
+            margin: 20px 0 8px;
+            font-weight: 500;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+
+        .upload-modal input,
+        .upload-modal textarea,
+        .upload-modal select {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.95rem;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+
+        .upload-modal input:focus,
+        .upload-modal textarea:focus,
+        .upload-modal select:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgba(32, 43, 29, 0.2);
+        }
+
+        .upload-modal textarea {
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        .upload-modal select {
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 16px;
+        }
+
+        .upload-modal .preview-area {
+            margin: 20px 0;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            transition: all 0.3s ease;
+            background-color: rgba(255, 255, 255, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .upload-modal .preview-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        .upload-modal .preview-area img {
+            max-width: 100%;
+            max-height: 300px;
+            display: none;
+            margin: 0 auto;
+            border-radius: 4px;
+        }
+
+        .upload-modal .preview-text {
+            color: #777;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .upload-modal .upload-icon {
+            font-size: 2rem;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .upload-modal button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 6px;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 500;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .upload-modal button:hover {
+            background-color: var(--secondary-color);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(32, 43, 29, 0.2);
+        }
+
+        .upload-modal button:active {
+            transform: translateY(0);
+        }
+
+        .upload-modal .form-group {
+            margin-bottom: 20px;
+        }
+
+        .upload-modal .price-field {
+            display: none;
+            margin-top: 20px;
+            position: relative;
+        }
+
+        .upload-modal .price-field.active {
+            display: block;
+        }
+
+        .upload-modal .peso-symbol {
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .upload-modal .price-input {
+            padding-left: 30px !important;
+        }
+
+        .upload-modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 100%;
+            background-color: #f5f5f5;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .upload-modal-close:hover {
+            background-color: #202b1d;
+            color: white;
+        }
+
+        .upload-success-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 3000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .upload-success-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .upload-success-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .upload-success-content i {
+            font-size: 3rem;
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+
+        .upload-success-content h3 {
+            font-family: 'Playfair Display', serif;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+        }
+
+        .upload-success-content p {
+            margin-bottom: 20px;
+            color: #555;
+        }
+
+        .upload-success-button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-weight: 500;
+            transition: background-color 0.3s;
+        }
+
+        .upload-success-button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        @media (max-width: 768px) {
+            .upload-modal-content {
+                padding: 30px 20px;
+                max-height: 95vh;
+            }
+
+            .upload-modal h2 {
+                font-size: 1.6rem;
+                margin-bottom: 25px;
+            }
+        }
+
+        /* Comment Modal Styles */
+        .comment-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 1200px;
+            height: 700px;
+            background-color: white;
+            z-index: 2000;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .comment-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .comment-modal-content {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            box-sizing: border-box;
+        }
+
+        .comment-image-section {
+            width: 70%;
+            background-color: #f5f5f5;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .comment-image {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .comment-section {
+            width: 30%;
+            background-color: white;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        .comments-list {
+            flex-grow: 1;
+            margin-bottom: 20px;
+        }
+
+        .comment-item {
+            display: flex;
+            margin-bottom: 15px;
+            gap: 10px;
+        }
+
+        .comment-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .comment-content {
+            flex-grow: 1;
+        }
+
+        .comment-user {
+            font-weight: 600;
+            font-size: 0.9rem;
+            color: #333;
+        }
+
+        .comment-text {
+            font-size: 0.85rem;
+            color: #555;
+            margin: 5px 0;
+        }
+
+        .comment-time {
+            font-size: 0.75rem;
+            color: #888;
+        }
+
+        .comment-delete {
+            background: none;
+            border: none;
+            color: #888;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        .comment-delete:hover {
+            color: #ed4956;
+        }
+
+        .comment-input-box {
+            display: flex;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+        }
+
+        .comment-input {
+            flex-grow: 1;
+            border: none;
+            outline: none;
+            font-size: 0.85rem;
+            padding: 10px;
+        }
+
+        .comment-submit {
+            color: #0095f6;
+            font-weight: 600;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            padding: 10px;
+        }
+
+        .comment-modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #f5f5f5;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .comment-modal-close:hover {
+            background-color: #202b1d;
+            color: white;
+        }
+
+        .comment-modal-close i {
+            font-size: 1.2rem;
+        }
+
+        @media (max-width: 768px) {
+            .upload-modal-content {
+                padding: 30px 20px;
+                max-height: 95vh;
+            }
+
+            .upload-modal h2 {
+                font-size: 1.6rem;
+                margin-bottom: 25px;
+            }
+
+            .comment-modal {
+                width: 90%;
+                height: 90vh;
+                max-width: 600px;
+            }
+
+            .comment-image-section {
+                width: 100%;
+                height: 50%;
+            }
+
+            .comment-section {
+                width: 100%;
+                height: 50%;
+                overflow-y: auto;
+            }
+        }
     </style>
 </head>
 
@@ -1207,7 +1574,7 @@ try {
                     <li><a href="../index.php#features">Features</a></li>
                     <li><a href="../index.php#gallery">Gallery</a></li>
                     <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="">About Us</a></li>
+                    <li><a href="../index.php#about">About Us</a></li>
                 </ul>
             </div>
             <div class="logo">VirtuGallery</div>
@@ -1217,8 +1584,8 @@ try {
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="profile-menu">
-                        <a href="../Pages/UserProfilePage.php">Profile</a>
-                        <a href="../Pages/UserProfilePage.php">My Collection</a>
+                        <a href="UserProfilePage.php">Profile</a>
+                        <a href="UserProfilePage.php">My Collection</a>
                         <a href="#" id="logout-btn">Logout</a>
                     </div>
                 </div>
@@ -1244,11 +1611,10 @@ try {
                         </div>
                     </div>
                     <div class="sidebartab">
-
                         <div class="AddWork">
                             <div class="add-work-container">
                                 <div class="add-work-placeholder">Add Your Artwork</div>
-                                <button class="add-image-btn" id="add-artwork-btn" onclick="location.href='../VirtuGallery/Pages/uploadArtworkPage.php'">+</button>
+                                <button class="add-image-btn" id="add-artwork-btn">+</button>
                             </div>
                         </div>
                         <div class="sidebarbuttons">
@@ -1278,11 +1644,14 @@ try {
                         <?php endif; ?>
                     </div>
                 </div>
+
+                <!-- Artist Profile Overlay -->
                 <div class="artist-profile-overlay" id="artistProfileOverlay">
                     <div class="overlay-content">
                         <div class="artist-header">
                             <div class="artist-avatar-container">
-                                <img src="uploads/profile_pictures/<?= $post['profile_picture'] ? htmlspecialchars($post['profile_picture']) : 'default.jpg' ?>" alt="User Photo">
+                                <img src="uploads/profile_pictures/<?= $post['profile_picture'] ? htmlspecialchars($post['profile_picture']) : 'default.jpg' ?>"
+                                    alt="User Photo">
                             </div>
                             <h2 class="artist-username">chatgpt_artist</h2>
                             <button class="follow-btn">Follow</button>
@@ -1344,49 +1713,27 @@ try {
                         </button>
                     </div>
                 </div>
-                <div class="comment-overlay" id="commentOverlay">
-                    <div class="overlay-content">
-                        <div class="comment-header">
-                            <div class="comment-title">Comments</div>
-                            <button class="close-overlay-btn">
-                                <i class="fas fa-times"></i>
-                            </button>
+
+                <!-- Comment Overlay -->
+                <div class="comment-modal" id="commentModal">
+                    <div class="comment-modal-content">
+                        <div class="comment-image-section">
+                            <img src="" class="comment-image" id="comment-image" alt="Post Image">
                         </div>
-                        <div class="comments-list">
-                            <div class="comment-item">
-                                <img src="../images/babaengghibli.png" class="comment-avatar" alt="User">
-                                <div class="comment-content">
-                                    <div class="comment-user">art_lover42</div>
-                                    <div class="comment-text">This is absolutely stunning! The colors are so vibrant.</div>
-                                    <div class="comment-time">2 hours ago</div>
-                                </div>
-                                <button class="comment-delete"><i class="fas fa-trash"></i></button>
-                            </div>
-                            <div class="comment-item">
-                                <img src="../images/mgamuning.jpg" class="comment-avatar" alt="User">
-                                <div class="comment-content">
-                                    <div class="comment-user">digital_creator</div>
-                                    <div class="comment-text">What software did you use for this? The textures are amazing!</div>
-                                    <div class="comment-time">3 hours ago</div>
-                                </div>
-                                <button class="comment-delete"><i class="fas fa-trash"></i></button>
-                            </div>
-                            <div class="comment-item">
-                                <img src="../images/lalalalal.jpg" class="comment-avatar" alt="User">
-                                <div class="comment-content">
-                                    <div class="comment-user">ghibli_fan</div>
-                                    <div class="comment-text">This reminds me of Princess Mononoke! Beautiful work.</div>
-                                    <div class="comment-time">5 hours ago</div>
-                                </div>
-                                <button class="comment-delete"><i class="fas fa-trash"></i></button>
+                        <div class="comment-section">
+                            <div class="comments-list" id="comments-list"></div>
+                            <div class="comment-input-box">
+                                <input type="text" class="comment-input" id="comment-input" placeholder="Add a comment...">
+                                <button class="comment-submit" id="comment-submit">Post</button>
                             </div>
                         </div>
-                        <div class="comment-form">
-                            <input type="text" class="comment-input" placeholder="Add a comment...">
-                            <button class="comment-submit">Post</button>
-                        </div>
+                        <button class="comment-modal-close">
+                            <i class="fas fa-times"></i>
+                        </button>
                     </div>
                 </div>
+
+                <!-- Likes Overlay -->
                 <div class="likes-overlay" id="likesOverlay">
                     <div class="overlay-content">
                         <div class="likes-header">
@@ -1432,6 +1779,91 @@ try {
                                 <button class="like-follow-btn">Follow</button>
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                <!-- Upload Artwork Modal -->
+                <div class="upload-modal" id="uploadModal">
+                    <div class="upload-modal-content">
+                        <div class="upload-modal-close" id="closeUploadModal">
+                            <i class="fas fa-times"></i>
+                        </div>
+                        <h2>Upload New Artwork</h2>
+                        <form id="uploadForm" method="post" enctype="multipart/form-data">
+                            <div class="form-group">
+                                <label for="post-title">Artwork Title</label>
+                                <input type="text" id="post-title" name="title" placeholder="Enter your artwork title"
+                                    required class="form-input">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="post-description">Description</label>
+                                <textarea id="post-description" name="description"
+                                    placeholder="Tell us about your artwork... its inspiration, techniques used, or special meaning"
+                                    required class="form-textarea"></textarea>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="category">Category</label>
+                                <select id="category" name="category" required class="form-select">
+                                    <option value="" disabled selected>Select a category</option>
+                                    <option value="paintings">Paintings</option>
+                                    <option value="pottery">Pottery</option>
+                                    <option value="sculpture">Sculpture</option>
+                                    <option value="photography">Photography</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="sale-option">Post Type</label>
+                                <select id="sale-option" name="post_type" class="form-select">
+                                    <option value="content">For Display Only</option>
+                                    <option value="product">For Sale</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group price-field" id="price-field">
+                                <label for="price">Price</label>
+                                <div style="position: relative;">
+                                    <span class="peso-symbol">₱</span>
+                                    <input type="number" id="price" name="price" placeholder="Enter price" min="0"
+                                        step="1" class="price-input form-input">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="tags">Tags</label>
+                                <input type="text" id="tags" name="tags"
+                                    placeholder="modern, abstract, landscape (separate with commas)" class="form-input">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="post-image">Upload Image</label>
+                                <input type="file" id="post-image" name="image" accept="image/*" required
+                                    style="display: none;">
+                                <div class="preview-area" id="preview-area">
+                                    <div class="upload-icon">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                    </div>
+                                    <p>Click to upload artwork image</p>
+                                    <p class="preview-text">JPEG, PNG (Max 5MB)</p>
+                                    <img id="image-preview" src="" alt="Preview">
+                                </div>
+                            </div>
+
+                            <button type="submit" class="submit-button">
+                                <i class="fas fa-upload"></i> Publish Artwork
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                <!-- Upload Success Modal -->
+                <div class="upload-success-modal" id="uploadSuccessModal">
+                    <div class="upload-success-content">
+                        <i class="fas fa-check-circle"></i>
+                        <h3>Artwork Published!</h3>
+                        <p>Your artwork has been successfully uploaded to VirtuGallery.</p>
+                        <button class="upload-success-button" id="uploadSuccessButton">Return to Home</button>
                     </div>
                 </div>
             </div>
@@ -1500,26 +1932,27 @@ try {
                 renderArtworks();
             });
 
-            // Add Artwork button functionality
+            // Add Artwork button functionality - now opens modal
             document.getElementById('add-artwork-btn').addEventListener('click', function() {
                 if (isLoggedIn) {
-                    window.location.href = '../Pages/uploadArtworkPage.php';
+                    openUploadModal();
                 } else {
-                    redirectAfterLogin = '../Pages/uploadArtworkPage.php';
+                    redirectAfterLogin = window.location.href;
                     showModal('login');
                 }
             });
 
-            // Logout functionality [NEW]
-            document.getElementById('logout-btn').addEventListener('click', function(e) {
-                e.preventDefault(); // Prevent default link behavior
-                logoutUser();
-            });
+            // Close upload modal button
+            document.getElementById('closeUploadModal')?.addEventListener('click', closeUploadModal);
+
+            // Close comment modal
+            document.querySelector('.comment-modal-close').addEventListener('click', closeCommentModal);
         });
 
         function initApp() {
             initEventListeners();
             renderArtworks();
+            initUploadModal();
         }
 
         function initEventListeners() {
@@ -1611,18 +2044,45 @@ try {
                 if (e.target.closest('.fa-comment') || e.target.closest('.feed-comments')) {
                     const feedContainer = e.target.closest('.feed-container');
                     const artworkId = parseInt(feedContainer.dataset.artworkId);
-                    openCommentOverlay(artworkId);
+                    openCommentModal(artworkId);
                 }
 
                 // Artist profile functionality
                 if (e.target.closest('.feed-username') || e.target.closest('.feed-avatar')) {
-                    const username = e.target.closest('.feed-container').querySelector('.feed-username').textContent;
+                    const username = e.target.closest('.feed-container').querySelector('.feed-username')
+                        .textContent;
                     openArtistProfile(username);
                 }
             });
 
+            function openCommentModal(postId) {
+                if (!isLoggedIn) {
+                    redirectAfterLogin = window.location.href;
+                    showModal('login');
+                    return;
+                }
+
+                document.body.style.overflow = 'hidden';
+                document.documentElement.style.overflow = 'hidden';
+                document.getElementById('overlayBackdrop').classList.add('active');
+                const commentModal = document.getElementById('commentModal');
+                commentModal.dataset.postId = postId;
+
+                // Set the image source based on the post ID
+                const artwork = posts.find(a => a.id === parseInt(postId));
+                if (artwork) {
+                    const commentImage = document.getElementById('comment-image');
+                    commentImage.src = `../${artwork.image_path}`;
+                    commentImage.alt = artwork.title;
+                }
+
+                setTimeout(() => {
+                    commentModal.classList.add('active');
+                }, 10);
+            }
+
             // Comment form submission
-            document.querySelector('.comment-submit').addEventListener('click', function() {
+            document.querySelector('.comment-submit')?.addEventListener('click', function() {
                 if (!isLoggedIn) {
                     redirectAfterLogin = window.location.href;
                     showModal('login');
@@ -1631,7 +2091,7 @@ try {
 
                 const commentInput = document.querySelector('.comment-input');
                 const commentText = commentInput.value.trim();
-                const postId = document.querySelector('.comment-overlay').dataset.postId;
+                const postId = document.querySelector('.comment-modal').dataset.postId;
 
                 if (commentText && postId) {
                     fetch('../add_comment.php', {
@@ -1653,11 +2113,12 @@ try {
                                 const createdAt = new Date(data.comment.created_at);
                                 const now = new Date();
                                 const hoursDiff = Math.round((now - createdAt) / (1000 * 60 * 60));
-                                const timeText = hoursDiff <= 24 ? `${hoursDiff} hours ago` : createdAt.toLocaleDateString('en-US', {
-                                    month: 'short',
-                                    day: 'numeric',
-                                    year: 'numeric'
-                                });
+                                const timeText = hoursDiff <= 24 ? `${hoursDiff} hours ago` : createdAt
+                                    .toLocaleDateString('en-US', {
+                                        month: 'short',
+                                        day: 'numeric',
+                                        year: 'numeric'
+                                    });
 
                                 newComment.innerHTML = `
                         <img src="https://via.placeholder.com/40" class="comment-avatar" alt="User">
@@ -1677,17 +2138,20 @@ try {
                                 const artwork = posts.find(a => a.id === parseInt(postId));
                                 if (artwork) {
                                     artwork.comments = (artwork.comments || 0) + 1;
-                                    const feedContainer = document.querySelector(`.feed-container[data-artwork-id="${postId}"]`);
+                                    const feedContainer = document.querySelector(
+                                        `.feed-container[data-artwork-id="${postId}"]`);
                                     if (feedContainer) {
-                                        feedContainer.querySelector('.feed-comments').textContent = `View all ${artwork.comments} comments`;
+                                        feedContainer.querySelector('.feed-comments').textContent =
+                                            `View all ${artwork.comments} comments`;
                                     }
                                 }
 
                                 // Re-attach delete event
-                                newComment.querySelector('.comment-delete')?.addEventListener('click', function() {
-                                    newComment.remove();
-                                    updateCommentCount(postId, -1);
-                                });
+                                newComment.querySelector('.comment-delete')?.addEventListener('click',
+                                    function() {
+                                        newComment.remove();
+                                        updateCommentCount(postId, -1);
+                                    });
                             } else {
                                 showToast(data.message || 'Error adding comment');
                             }
@@ -1708,6 +2172,121 @@ try {
             });
         }
 
+        function initUploadModal() {
+            // Image preview functionality
+            const fileInput = document.getElementById('post-image');
+            const previewArea = document.getElementById('preview-area');
+            const imagePreview = document.getElementById('image-preview');
+
+            previewArea?.addEventListener('click', function() {
+                fileInput.click();
+            });
+
+            fileInput?.addEventListener('change', function() {
+                const file = this.files[0];
+                if (file) {
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('File size exceeds 5MB limit');
+                        return;
+                    }
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreview.src = e.target.result;
+                        imagePreview.style.display = 'block';
+                        previewArea.querySelector('p').style.display = 'none';
+                        previewArea.querySelector('.upload-icon').style.display = 'none';
+                        previewArea.querySelector('.preview-text').style.display = 'none';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Show/hide price field
+            const saleOption = document.getElementById('sale-option');
+            const priceField = document.getElementById('price-field');
+            saleOption?.addEventListener('change', function() {
+                if (this.value === 'product') {
+                    priceField.classList.add('active');
+                    document.getElementById('price').setAttribute('required', '');
+                } else {
+                    priceField.classList.remove('active');
+                    document.getElementById('price').removeAttribute('required');
+                }
+            });
+
+            // Form submission with AJAX
+            const form = document.getElementById('uploadForm');
+            const successModal = document.getElementById('uploadSuccessModal');
+            const successButton = document.getElementById('uploadSuccessButton');
+
+            form?.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                if (saleOption.value === 'product' && !document.getElementById('price').value) {
+                    alert('Please enter a price for your artwork');
+                    return;
+                }
+                if (!fileInput.files.length) {
+                    alert('Please upload an image of your artwork');
+                    return;
+                }
+
+                const formData = new FormData(form);
+                fetch('../upload.php', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            if (response.status === 404) {
+                                throw new Error(
+                                    'Upload script not found. Ensure upload.php is in the correct directory.'
+                                );
+                            }
+                            throw new Error('HTTP error ' + response.status);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.success) {
+                            closeUploadModal();
+                            successModal.classList.add('active');
+                            setTimeout(function() {
+                                window.location.reload();
+                            }, 3000);
+                        } else {
+                            alert('Upload failed: ' + (data.errors || ['Unknown error']).join(', '));
+                        }
+                    })
+                    .catch(error => {
+                        alert('An error occurred: ' + error.message);
+                    });
+            });
+
+            successButton.addEventListener('click', function() {
+                successModal.classList.remove('active');
+                window.location.reload();
+            });
+        }
+
+        function openUploadModal() {
+            document.body.style.overflow = 'hidden';
+            document.documentElement.style.overflow = 'hidden';
+            document.getElementById('overlayBackdrop').classList.add('active');
+            setTimeout(() => {
+                document.getElementById('uploadModal').classList.add('active');
+            }, 10);
+        }
+
+        function closeUploadModal() {
+            document.getElementById('uploadModal').classList.remove('active');
+            setTimeout(() => {
+                document.getElementById('overlayBackdrop').classList.remove('active');
+                document.body.style.overflow = 'auto';
+                document.documentElement.style.overflow = 'auto';
+            }, 400);
+        }
+
         function renderArtworks() {
             const artworkGrid = document.getElementById('artwork-grid');
             artworkGrid.innerHTML = '';
@@ -1721,11 +2300,12 @@ try {
                 const createdAt = new Date(artwork.created_at);
                 const now = new Date();
                 const hoursDiff = Math.round((now - createdAt) / (1000 * 60 * 60));
-                const timestamp = hoursDiff <= 24 ? `${hoursDiff} hours ago` : createdAt.toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                });
+                const timestamp = hoursDiff <= 24 ? `${hoursDiff} hours ago` : createdAt.toLocaleDateString(
+                    'en-US', {
+                        month: 'short',
+                        day: 'numeric',
+                        year: 'numeric'
+                    });
 
                 const artworkElement = document.createElement('div');
                 artworkElement.className = 'feed-container';
@@ -1789,7 +2369,8 @@ try {
                 posts.push(...filteredPosts);
                 renderArtworks();
 
-                showToast(filteredPosts.length > 0 ? `Found ${filteredPosts.length} results for "${searchTerm}"` : 'No results found');
+                showToast(filteredPosts.length > 0 ? `Found ${filteredPosts.length} results for "${searchTerm}"` :
+                    'No results found');
                 document.getElementById('search-input').value = '';
             }
         }
@@ -1813,7 +2394,7 @@ try {
             }, 400);
         }
 
-        function openCommentOverlay(postId) {
+        function openCommentModal(postId) {
             if (!isLoggedIn) {
                 redirectAfterLogin = window.location.href;
                 showModal('login');
@@ -1823,63 +2404,24 @@ try {
             document.body.style.overflow = 'hidden';
             document.documentElement.style.overflow = 'hidden';
             document.getElementById('overlayBackdrop').classList.add('active');
-            const commentOverlay = document.getElementById('commentOverlay');
-            commentOverlay.dataset.postId = postId;
+            const commentModal = document.getElementById('commentModal');
+            commentModal.dataset.postId = postId;
 
-            // Fetch comments
-            fetch(`../get_comments.php?post_id=${postId}`)
-                .then(response => response.json())
-                .then(data => {
-                    const commentsList = document.querySelector('.comments-list');
-                    commentsList.innerHTML = '';
+            // Set the image source based on the post ID
+            const artwork = posts.find(a => a.id === parseInt(postId));
+            if (artwork) {
+                const commentImage = document.getElementById('comment-image');
+                commentImage.src = `../${artwork.image_path}`;
+                commentImage.alt = artwork.title;
+            }
 
-                    if (data.success && data.comments.length > 0) {
-                        data.comments.forEach(comment => {
-                            const commentElement = document.createElement('div');
-                            commentElement.className = 'comment-item';
-                            const createdAt = new Date(comment.created_at);
-                            const now = new Date();
-                            const hoursDiff = Math.round((now - createdAt) / (1000 * 60 * 60));
-                            const timeText = hoursDiff <= 24 ? `${hoursDiff} hours ago` : createdAt.toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                                year: 'numeric'
-                            });
-
-                            commentElement.innerHTML = `
-                    <img src="https://via.placeholder.com/40" class="comment-avatar" alt="User">
-                    <div class="comment-content">
-                        <div class="comment-user">${comment.username}</div>
-                        <div class="comment-text">${comment.comment_text}</div>
-                        <div class="comment-time">${timeText}</div>
-                    </div>
-                    ${comment.username === '<?php echo $username; ?>' ? '<button class="comment-delete"><i class="fas fa-trash"></i></button>' : ''}
-                `;
-
-                            commentsList.appendChild(commentElement);
-
-                            // Add delete event for user's own comments
-                            const deleteBtn = commentElement.querySelector('.comment-delete');
-                            if (deleteBtn) {
-                                deleteBtn.addEventListener('click', function() {
-                                    commentElement.remove();
-                                    updateCommentCount(postId, -1);
-                                });
-                            }
-                        });
-                    } else {
-                        commentsList.innerHTML = '<div style="text-align: center; color: #888;">No comments yet.</div>';
-                    }
-
-                    setTimeout(() => {
-                        commentOverlay.classList.add('active');
-                    }, 10);
-                })
-                .catch(() => showToast('Network error'));
+            setTimeout(() => {
+                commentModal.classList.add('active');
+            }, 10);
         }
 
-        function closeCommentOverlay() {
-            document.getElementById('commentOverlay').classList.remove('active');
+        function closeCommentModal() {
+            document.getElementById('commentModal').classList.remove('active');
             setTimeout(() => {
                 document.getElementById('overlayBackdrop').classList.remove('active');
                 document.body.style.overflow = 'auto';
@@ -1922,10 +2464,9 @@ try {
             }
         }
 
-        // Logout function [NEW]
         function logoutUser() {
             fetch('../logout.php', {
-                    method: 'GET', // logout.php expects GET
+                    method: 'GET',
                     headers: {
                         'Content-Type': 'application/json'
                     }
@@ -1935,8 +2476,8 @@ try {
                     if (data.success) {
                         showToast('Logged out successfully');
                         setTimeout(() => {
-                            window.location.href = '../index.php'; // Redirect to login
-                        }, 1000); // Delay for toast visibility
+                            window.location.href = '../index.php';
+                        }, 1000);
                     } else {
                         showToast(data.message || 'Logout failed');
                     }
@@ -1950,21 +2491,22 @@ try {
             if (document.getElementById('artistProfileOverlay').classList.contains('active')) {
                 closeArtistProfile();
             }
-            if (document.getElementById('commentOverlay').classList.contains('active')) {
-                closeCommentOverlay();
+            if (document.getElementById('commentModal').classList.contains('active')) {
+                closeCommentModal();
             }
             if (document.getElementById('likesOverlay').classList.contains('active')) {
                 closeLikesOverlay();
+            }
+            if (document.getElementById('uploadModal').classList.contains('active')) {
+                closeUploadModal();
             }
         });
 
         document.querySelectorAll('.close-overlay-btn').forEach(btn => {
             btn.addEventListener('click', function() {
-                const overlay = this.closest('.artist-profile-overlay, .comment-overlay, .likes-overlay');
+                const overlay = this.closest('.artist-profile-overlay, .likes-overlay');
                 if (overlay.classList.contains('artist-profile-overlay')) {
                     closeArtistProfile();
-                } else if (overlay.classList.contains('comment-overlay')) {
-                    closeCommentOverlay();
                 } else if (overlay.classList.contains('likes-overlay')) {
                     closeLikesOverlay();
                 }
@@ -1975,10 +2517,12 @@ try {
             if (e.key === 'Escape') {
                 if (document.getElementById('artistProfileOverlay').classList.contains('active')) {
                     closeArtistProfile();
-                } else if (document.getElementById('commentOverlay').classList.contains('active')) {
-                    closeCommentOverlay();
+                } else if (document.getElementById('commentModal').classList.contains('active')) {
+                    closeCommentModal();
                 } else if (document.getElementById('likesOverlay').classList.contains('active')) {
                     closeLikesOverlay();
+                } else if (document.getElementById('uploadModal').classList.contains('active')) {
+                    closeUploadModal();
                 }
             }
         });
@@ -1987,7 +2531,8 @@ try {
             tab.addEventListener('click', function() {
                 document.querySelectorAll('.artist-tab').forEach(t => t.classList.remove('active'));
                 this.classList.add('active');
-                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(content => content.classList.remove(
+                    'active'));
                 const tabId = this.getAttribute('data-tab');
                 document.getElementById(tabId + '-tab').classList.add('active');
             });
@@ -2018,4 +2563,4 @@ try {
     </script>
 </body>
 
-</html>cript
+</html>

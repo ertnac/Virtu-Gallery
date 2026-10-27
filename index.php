@@ -1336,8 +1336,8 @@
         <li><a href="#hero">Home</a></li>
         <li><a href="#features">Features</a></li>
         <li><a href="#gallery">Gallery</a></li>
-        <li><a href="#" class="marketplace-link">Marketplace</a></li>
-        <li><a href="#">About Us</a></li>
+        <li><a href="Pages/Marketplace.php" class="marketplace-link">Marketplace</a></li>
+        <li><a href="#about">About Us</a></li>
       </ul>
     </div>
     <div class="logo">VirtuGallery</div>
@@ -1947,7 +1947,7 @@
               if (redirectAfterLogin) {
                 window.location.href = redirectAfterLogin;
               } else {
-                window.location.href = "../VirtuGallery/Pages/home.php";
+                window.location.href = "Pages/home.php";
               }
             } else {
               alert(data.errors.join("\n"));
@@ -2009,7 +2009,7 @@
               if (redirectAfterLogin) {
                 window.location.href = redirectAfterLogin;
               } else {
-                window.location.href = "index.php";
+                window.location.href = "Pages/home.php";
               }
             } else {
               alert(data.errors.join("\n"));
@@ -2076,9 +2076,9 @@
       marketplaceLink.addEventListener("click", function(e) {
         e.preventDefault();
         if (isLoggedIn) {
-          window.location.href = "/VirtuGallery/Pages/Marketplace.php";
+          window.location.href = "Pages/Marketplace.php";
         } else {
-          redirectAfterLogin = "/VirtuGallery/Pages/Marketplace.php";
+          redirectAfterLogin = "Pages/Marketplace.php";
           showModal("login");
         }
       });

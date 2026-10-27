@@ -646,7 +646,7 @@
                     <li><a href="../index.php#features">Features</a></li>
                     <li><a href="../index.php#gallery">Gallery</a></li>
                     <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="">About Us</a></li>
+                    <li><a href="../index.php#about">About Us</a></li>
                 </ul>
             </div>
             <div class="logo">VirtuGallery</div>
@@ -656,8 +656,8 @@
                         <i class="fas fa-user"></i>
                     </div>
                     <div class="profile-menu">
-                        <a href="../Pages/UserProfilePage.html">Profile</a>
-                        <a href="../Pages/UserProfilePage.html">My Collection</a>
+                        <a href="UserProfilePage.php">Profile</a>
+                        <a href="UserProfilePage.php">My Collection</a>
                         <a href="#">Logout</a>
                     </div>
                 </div>
@@ -863,17 +863,14 @@
                 currentView = 'notifications';
             }
 
-            // Add artwork functionality
-            document.querySelector('.add-image-btn').addEventListener('click', function () {
-                const placeholder = document.querySelector('.add-work-placeholder');
-                const details = document.querySelector('.artwork-details');
-
-                if (details.style.display === 'none') {
-                    placeholder.style.display = 'none';
-                    details.style.display = 'block';
+            
+            // Add Artwork button functionality
+            document.getElementById('add-artwork-btn').addEventListener('click', function() {
+                if (isLoggedIn) {
+                    window.location.href = '../Pages/uploadArtworkPage.php';
                 } else {
-                    placeholder.style.display = 'block';
-                    details.style.display = 'none';
+                    redirectAfterLogin = '../Pages/uploadArtworkPage.php';
+                    showModal('login');
                 }
             });
 

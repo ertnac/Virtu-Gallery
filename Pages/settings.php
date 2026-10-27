@@ -671,7 +671,7 @@
                     <li><a href="../index.php#features">Features</a></li>
                     <li><a href="../index.php#gallery">Gallery</a></li>
                     <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="">About Us</a></li>
+                    <li><a href="../index.php#about">About Us</a></li>
                 </ul>
             </div>
             <div class="logo">VirtuGallery</div>

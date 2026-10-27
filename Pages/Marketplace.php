@@ -649,12 +649,12 @@
                     <li><a href="../index.php#features">Features</a></li>
                     <li><a href="../index.php#gallery">Gallery</a></li>
                     <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="">About Us</a></li>
+                    <li><a href="../index.php#about">About Us</a></li>
                 </ul>
             </div>
         <div class="logo">VirtuGallery</div>
         <div class="nav-right">
-            <a href="../Pages/cart.html" class="cart-icon">
+            <a href="cart.html" class="cart-icon">
                 <i class="fas fa-shopping-cart"></i>
                 <span class="cart-count">0</span>
             </a>
@@ -691,7 +691,7 @@
             <!-- Artwork 1 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_4_683f635f9d55e.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_4_683f635f9d55e.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">Monalisa</div>
@@ -709,7 +709,7 @@
             <!-- Artwork 2 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_3_68438343461c4.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_3_68438343461c4.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">Medusa</div>
@@ -727,7 +727,7 @@
             <!-- Artwork 3 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_3_6843823bdb475.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_3_6843823bdb475.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">Mountain Peak</div>
@@ -745,7 +745,7 @@
             <!-- Artwork 4 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_3_684383c848806.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_3_684383c848806.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">Forest Path</div>
@@ -763,7 +763,7 @@
             <!-- Artwork 5 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_3_684381ca59dde.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_3_684381ca59dde.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">Abstract Thoughts</div>
@@ -781,7 +781,7 @@
             <!-- Artwork 6 -->
             <div class="artwork-card">
                 <div class="artwork-image-container">
-                    <img src="\VirtuGallery\uploads\artwork_3_68439f96c07df.jpg" alt="Artwork" class="artwork-image">
+                    <img src="../uploads/artwork_3_68439f96c07df.jpg" alt="Artwork" class="artwork-image">
                 </div>
                 <div class="artwork-info">
                     <div class="artwork-title">City Lights</div>
