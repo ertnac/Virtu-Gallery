@@ -1,17 +1,17 @@
 ﻿<?php
 session_start();
-require_once '../db_connect.php';
+require_once __DIR__ . '/../db_connect.php';
 
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
-    header('Location: index.php');
+    header('Location: ../index.php');
     exit;
 }
 
 // Fetch user details from the database
 try {
     $stmt = $pdo->prepare('
-        SELECT username, email, first_name, last_name, bio, website, profile_picture
+        SELECT username, email, first_name, middle_name, last_name, suffix, phone, bio, website, profile_picture
         FROM users 
         WHERE id = ?
     ');
@@ -22,13 +22,13 @@ try {
         // If user not found, destroy session and redirect
         session_unset();
         session_destroy();
-        header('Location: index.php');
+        header('Location: ../index.php');
         exit;
     }
 
     // Set display values, with fallbacks
     $username = $user['username'] ?? $user['email'];
-    $display_name = trim($user['first_name'] . ' ' . $user['last_name']);
+    $display_name = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
     $bio = $user['bio'] ?? 'No bio provided';
     $website = $user['website'] ?? '#';
     $profile_picture = $user['profile_picture'] ?? 'https://source.unsplash.com/random/300x300?portrait';
@@ -332,6 +332,7 @@ try {
             font-weight: 600;
             color: #202b1d;
             margin-bottom: 5px;
+            font-size: 15px;
         }
 
         .profile-bio {
@@ -666,6 +667,225 @@ try {
             background-color: #1a2318;
         }
 
+        /* Edit Profile Modal */
+        .edit-profile-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+            overflow-y: auto;
+        }
+
+        .edit-profile-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .edit-profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            position: relative;
+        }
+
+        .back-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: #202b1d;
+            margin-right: 15px;
+            cursor: pointer;
+            padding: 5px;
+        }
+
+        .edit-profile-title {
+            font-family: 'Playfair Display', serif;
+            color: #202b1d;
+            font-size: 1.8rem;
+            flex-grow: 1;
+        }
+
+        .close-edit-profile {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            color: #777;
+            cursor: pointer;
+            padding: 5px;
+            margin-left: 15px;
+        }
+
+        /* Profile Picture Section */
+        .profile-pic-section {
+            display: flex;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .profile-pic-preview {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid #eee;
+            margin-right: 30px;
+        }
+
+        .profile-pic-actions {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .change-pic-btn {
+            background-color: #202b1d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 10px;
+            transition: all 0.3s;
+        }
+
+        .change-pic-btn:hover {
+            background-color: #1a2318;
+        }
+
+        .remove-pic-btn {
+            background: none;
+            border: none;
+            color: #e74c3c;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: left;
+        }
+
+        /* Form Styles */
+        .edit-profile-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group.full-width {
+            grid-column: span 2;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #202b1d;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Montserrat', sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #202b1d;
+        }
+
+        .form-textarea {
+            width: 100%;
+            height: 120px;
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: 'Montserrat', sans-serif;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: #202b1d;
+        }
+
+        /* Form Actions */
+        .form-actions {
+            grid-column: span 2;
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 20px;
+        }
+
+        .cancel-btn {
+            background: none;
+            border: 1px solid #ddd;
+            color: #333;
+            padding: 10px 20px;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 15px;
+            transition: all 0.3s;
+        }
+
+        .cancel-btn:hover {
+            border-color: #999;
+        }
+
+        .save-btn {
+            background-color: #202b1d;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .save-btn:hover {
+            background-color: #1a2318;
+        }
+
+        /* Error Messages */
+        .error-message {
+            color: #e74c3c;
+            background-color: #fdecea;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        /* Success Messages */
+        .success-message {
+            color: #2e7d32;
+            background-color: #edf7ed;
+            padding: 10px 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #2e7d32;
+        }
+
         /* Responsive */
         @media (max-width: 1200px) {
             .artist-suggestions {
@@ -751,6 +971,11 @@ try {
             .gallery-grid {
                 grid-template-columns: 1fr;
             }
+
+            .edit-profile-content {
+                padding: 25px;
+                width: 95%;
+            }
         }
 
         @media (max-width: 480px) {
@@ -771,6 +996,29 @@ try {
             .tab {
                 margin: 0 10px 5px;
                 font-size: 0.8rem;
+            }
+
+            .edit-profile-title {
+                font-size: 1.5rem;
+            }
+
+            .profile-pic-section {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .profile-pic-preview {
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+
+            .form-actions {
+                flex-direction: column;
+            }
+
+            .cancel-btn {
+                margin-right: 0;
+                margin-bottom: 10px;
             }
         }
     </style>
@@ -801,7 +1049,6 @@ try {
         <div class="artist-suggestions">
             <a class="back-nav" id="back-button">
                 <i class="fas fa-arrow-left"></i>
-                <h2>Virtu Gallery</h2>
             </a>
 
             <h3 class="suggestions-title">Artists You Might Like</h3>
@@ -866,7 +1113,7 @@ try {
                     <div class="profile-info">
                         <div class="profile-top">
                             <h1 class="username"><?php echo htmlspecialchars($username); ?></h1>
-                            <button class="edit-profile-btn" onclick="location.href='editProfile.php'">Edit Profile</button>
+                            <button class="edit-profile-btn" id="editProfileBtn">Edit Profile</button>
                             <i class="fas fa-cog settings-btn"></i>
                         </div>
                         <div class="profile-stats">
@@ -1076,6 +1323,83 @@ try {
         </div>
     </div>
 
+    <!-- Edit Profile Modal -->
+    <div class="edit-profile-modal" id="editProfileModal">
+        <div class="edit-profile-content">
+            <div class="edit-profile-header">
+                <button class="close-edit-profile" id="editProfileBackBtn">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <h1 class="edit-profile-title">Edit Profile</h1>
+            </div>
+
+            <!-- Display error messages if any -->
+            <div class="error-message" id="editProfileErrors" style="display: none;"></div>
+
+            <!-- Display success message if any -->
+            <div class="success-message" id="editProfileSuccess" style="display: none;"></div>
+
+            <!-- Edit Profile Form -->
+            <form class="edit-profile-form" id="editProfileForm" method="POST" enctype="multipart/form-data">
+                <!-- Profile Picture Section -->
+                <div class="profile-pic-section">
+                    <img src="<?php echo htmlspecialchars($profile_picture); ?>" alt="Profile Picture" class="profile-pic-preview" id="profilePicPreview">
+                    <div class="profile-pic-actions">
+                        <input type="file" id="profilePicInput" name="image" accept="image/jpeg,image/png" style="display: none;">
+                        <button type="button" class="change-pic-btn" id="changePicBtn">Change Profile Photo</button>
+                        <button type="button" class="remove-pic-btn" id="removePicBtn">Remove Photo</button>
+                        <input type="hidden" name="remove_profile_pic" id="removeProfilePic" value="0">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-username" class="form-label">Username</label>
+                    <input type="text" id="edit-username" name="username" class="form-input" value="<?php echo htmlspecialchars($user['username'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-first_name" class="form-label">First Name</label>
+                    <input type="text" id="edit-first_name" name="first_name" class="form-input" value="<?php echo htmlspecialchars($user['first_name'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-middle_name" class="form-label">Middle Name</label>
+                    <input type="text" id="edit-middle_name" name="middle_name" class="form-input" value="<?php echo htmlspecialchars($user['middle_name'] ?? ''); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-last_name" class="form-label">Last Name</label>
+                    <input type="text" id="edit-last_name" name="last_name" class="form-input" value="<?php echo htmlspecialchars($user['last_name'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-suffix" class="form-label">Suffix</label>
+                    <input type="text" id="edit-suffix" name="suffix" class="form-input" value="<?php echo htmlspecialchars($user['suffix'] ?? ''); ?>">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-email" class="form-label">Email</label>
+                    <input type="email" id="edit-email" name="email" class="form-input" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-phone" class="form-label">Phone Number</label>
+                    <input type="tel" id="edit-phone" name="phone" class="form-input" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>">
+                </div>
+
+                <div class="form-group full-width">
+                    <label for="edit-bio" class="form-label">Bio</label>
+                    <textarea id="edit-bio" name="bio" class="form-textarea"><?php echo htmlspecialchars($user['bio'] ?? ''); ?></textarea>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" class="cancel-btn" id="editProfileCancelBtn">Cancel</button>
+                    <button type="submit" class="save-btn">Save Changes</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Review Modal -->
     <div class="review-modal" id="reviewModal">
         <div class="review-content">
@@ -1134,11 +1458,6 @@ try {
         // Initialize with posts tab showing
         postsTab.style.display = 'grid';
         ordersTab.style.display = 'none';
-
-        // Edit Profile Button
-        document.querySelector(".edit-profile-btn").addEventListener("click", function() {
-            window.location.href = "editProfile.php";
-        });
 
         // Settings Button
         const settingsBtn = document.querySelector('.settings-btn');
@@ -1264,6 +1583,126 @@ try {
         window.addEventListener('click', function(e) {
             if (e.target === reviewModal) {
                 reviewModal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        // Edit Profile Modal Functionality
+        const editProfileModal = document.getElementById('editProfileModal');
+        const editProfileBtn = document.getElementById('editProfileBtn');
+        const closeEditProfile = document.querySelector('.close-edit-profile');
+        const editProfileBackBtn = document.getElementById('editProfileBackBtn');
+        const editProfileCancelBtn = document.getElementById('editProfileCancelBtn');
+        const editProfileForm = document.getElementById('editProfileForm');
+
+        // Open modal when Edit Profile button is clicked
+        editProfileBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            editProfileModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        });
+
+        // Close modal when X button is clicked
+        closeEditProfile.addEventListener('click', function() {
+            editProfileModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        });
+
+        // Close modal when back button is clicked
+        editProfileBackBtn.addEventListener('click', function() {
+            editProfileModal.style.display = 'none';
+            document.body.style.overflow = 'auto';
+        });
+
+        // Close modal when cancel button is clicked
+        editProfileCancelBtn.addEventListener('click', function() {
+            if (confirm('Are you sure you want to discard your changes?')) {
+                editProfileModal.style.display = 'none';
+                document.body.style.overflow = 'auto';
+            }
+        });
+
+        // Profile Picture Handling in Modal
+        const changePicBtn = document.getElementById('changePicBtn');
+        const removePicBtn = document.getElementById('removePicBtn');
+        const profilePicInput = document.getElementById('profilePicInput');
+        const profilePicPreview = document.getElementById('profilePicPreview');
+        const removeProfilePicInput = document.getElementById('removeProfilePic');
+
+        if (changePicBtn && profilePicInput) {
+            changePicBtn.addEventListener('click', function() {
+                profilePicInput.click();
+            });
+        }
+
+        if (profilePicInput) {
+            profilePicInput.addEventListener('change', function(e) {
+                if (e.target.files && e.target.files[0]) {
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        profilePicPreview.src = event.target.result;
+                    }
+
+                    reader.readAsDataURL(e.target.files[0]);
+                    // Reset remove photo flag if new photo is selected
+                    removeProfilePicInput.value = '0';
+                }
+            });
+        }
+
+        if (removePicBtn) {
+            removePicBtn.addEventListener('click', function() {
+                // Set the default profile picture preview
+                profilePicPreview.src = 'https://source.unsplash.com/random/300x300?portrait';
+                // Set the hidden input value to indicate removal
+                removeProfilePicInput.value = '1';
+                // Clear any selected file in the file input
+                profilePicInput.value = '';
+            });
+        }
+
+        // Form submission handling
+        editProfileForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(editProfileForm);
+            
+            fetch('editProfile.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(data => {
+                // Check if the response contains success message
+                if (data.includes('Profile updated successfully')) {
+                    // Show success message
+                    document.getElementById('editProfileSuccess').style.display = 'block';
+                    document.getElementById('editProfileSuccess').innerHTML = '<p>Profile updated successfully!</p>';
+                    document.getElementById('editProfileErrors').style.display = 'none';
+                    
+                    // Reload the page after a short delay to show updated profile
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    // Show error messages if any
+                    document.getElementById('editProfileErrors').style.display = 'block';
+                    document.getElementById('editProfileErrors').innerHTML = data;
+                    document.getElementById('editProfileSuccess').style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('editProfileErrors').style.display = 'block';
+                document.getElementById('editProfileErrors').innerHTML = '<p>An error occurred while updating your profile.</p>';
+            });
+        });
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(e) {
+            if (e.target === editProfileModal) {
+                editProfileModal.style.display = 'none';
                 document.body.style.overflow = 'auto';
             }
         });

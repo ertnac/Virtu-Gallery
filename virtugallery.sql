@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(100) NOT NULL UNIQUE,
     password VARCHAR(255) NOT NULL,
     username VARCHAR(50) UNIQUE,
+    phone VARCHAR(30),
     municipality VARCHAR(100) NOT NULL,
     province VARCHAR(100) NOT NULL,
     bio TEXT,
@@ -29,7 +30,7 @@ CREATE TABLE IF NOT EXISTS posts (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
-CREATE TABLE likes (
+CREATE TABLE IF NOT EXISTS likes (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -39,7 +40,7 @@ CREATE TABLE likes (
     UNIQUE KEY unique_like (post_id, user_id)
 );
 
-CREATE TABLE comments (
+CREATE TABLE IF NOT EXISTS comments (
     id INT AUTO_INCREMENT PRIMARY KEY,
     post_id INT NOT NULL,
     user_id INT NOT NULL,
@@ -49,3 +50,36 @@ CREATE TABLE comments (
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS follows (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    follower_id INT NOT NULL,
+    followed_id INT NOT NULL,
+    follow_date DATE NOT NULL,
+    follow_timestamp DATETIME NOT NULL,
+    flagged BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (follower_id) REFERENCES users(id),
+    FOREIGN KEY (followed_id) REFERENCES users(id)
+);
+
+CREATE TABLE IF NOT EXISTS artists (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL UNIQUE,
+    stage_name VARCHAR(100),
+    art_style VARCHAR(100),
+    portfolio_link VARCHAR(255),
+    verified BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS orders (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    customer_id INT NOT NULL,
+    post_id INT NOT NULL,
+    date DATETIME DEFAULT CURRENT_TIMESTAMP,
+    total DECIMAL(10, 2) NOT NULL,
+    status VARCHAR(50) DEFAULT 'Completed',
+    payment_method VARCHAR(50) DEFAULT 'Credit Card',
+    address TEXT,
+    FOREIGN KEY (customer_id) REFERENCES users(id),
+    FOREIGN KEY (post_id) REFERENCES posts(id)
+);
