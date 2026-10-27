@@ -1,4 +1,31 @@
-Pages/virtugallery.sql
-virtugallery.sql
+# Environment Variables & Credentials
+.env
+.env.*
+*.env
+config.local.php
+
+# Local Databases & SQLite
 virtugallery.db
+*.db
+*.sqlite
+*.sqlite3
+
+# PHP & Local Server Configurations
 php.ini
+
+# SQL dumps
+virtugallery.sql
+Pages/virtugallery.sql
+*.sql
+
+# Logs & Temporary files
+*.log
+logs/
+tmp/
+temp/
+.DS_Store
+Thumbs.db
+
+# IDE & Editor files
+.vscode/
+.idea/
