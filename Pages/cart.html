@@ -1,916 +1,289 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtu Gallery - Cart</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Shopping Cart — VirtuGallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Montserrat', sans-serif;
-            color: #333;
-            line-height: 1.6;
-            background-color: #f9f9f9;
-            overflow: hidden;
-            height: 100vh;
-            padding-top: 90px;
-        }
-
-        h1, h2, h3 {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        /* Navigation Bar */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: white;
-            padding: 15px 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.3s ease, padding 0.3s ease;
-            height: 90px;
-        }
-
-        .nav-left,
-        .nav-right {
-            display: flex;
-            align-items: center;
-        }
-
-        nav.scrolled {
-            background-color: rgba(32, 43, 29, 1);
-            padding: 10px 5%;
-        }
-
-            nav.scrolled .logo,
-            nav.scrolled .nav-links a,
-            nav.scrolled .profile-icon,
-            nav.scrolled .cart-icon {
-                color: white;
-            }
-
-                nav.scrolled .nav-links a:hover {
-                    color: #ecd5a6;
-                }
-
-                nav.scrolled .profile-icon:hover,
-                nav.scrolled .cart-icon:hover {
-                    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-                }
-
-            nav.scrolled .profile-menu a:hover {
-                color: #ecd5a6;
-            }
-
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            color: #202b1d;
-            font-weight: bold;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            transition: color 0.3s ease;
-        }
-
-        nav.scrolled .logo {
-            color: white;
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-            .nav-links li {
-                margin-left: 20px;
-                position: relative;
-            }
-
-            .nav-links a {
-                color: #333;
-                font-weight: 500;
-                transition: color 0.3s;
-                position: relative;
-            }
-
-                .nav-links a.active {
-                    color: #202b1d;
-                    font-weight: 600;
-                }
-
-                .nav-links a:hover {
-                    color: #202b1d;
-                }
-
-                .nav-links a::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    left: 0;
-                    width: 0;
-                    height: 2px;
-                    background-color: #000000;
-                    transition: width 0.3s;
-                }
-
-                .nav-links a:hover::after,
-                .nav-links a.active::after {
-                    width: 100%;
-                }
-
-        nav.scrolled .nav-links a::after {
-            background-color: #ecd5a6;
-        }
-
-        .profile-container {
-            position: relative;
-            margin-left: 10px;
-        }
-
-        .profile-icon,
-        .cart-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #202b1d;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-left: 10px;
-            position: relative;
-        }
-
-            .profile-icon:hover,
-            .cart-icon:hover {
-                transform: scale(1.1);
-                box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-            }
-
-        .cart-count {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-
-        nav.scrolled .cart-count {
-            background-color: #e74c3c;
-        }
-
-        .profile-menu {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-            z-index: 1000;
-            min-width: 180px;
-        }
-
-            .profile-container:hover .profile-menu,
-            .profile-menu.active {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-            .profile-menu a {
-                display: block;
-                padding: 12px 20px;
-                color: #333;
-                font-weight: 500;
-                transition: background-color 0.3s, color 0.3s;
-            }
-
-                .profile-menu a:hover {
-                    background-color: #f9f9f9;
-                    color: #202b1d;
-                }
-
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: #333;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        nav.scrolled .mobile-menu-btn {
-            color: white;
-        }
-
-        /* Cart Content */
-        .cart-content {
-            padding: 20px 5%;
-            background-color: #f9f9f9;
-            min-height: calc(100vh - 90px);
-        }
-
-        .content-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            height: calc(100vh - 110px);
-            overflow-y: auto;
-            padding: 30px;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-        }
-
-            .content-container::-webkit-scrollbar {
-                width: 8px;
-            }
-
-            .content-container::-webkit-scrollbar-track {
-                background: #f1f1f1;
-                border-radius: 4px;
-            }
-
-            .content-container::-webkit-scrollbar-thumb {
-                background: #202b1d;
-                border-radius: 4px;
-            }
-
-                .content-container::-webkit-scrollbar-thumb:hover {
-                    background: #1a2318;
-                }
-
-        .page-title {
-            font-family: 'Playfair Display', serif;
-            color: #202b1d;
-            margin-bottom: 30px;
-            font-size: 2rem;
-            text-align: center;
-        }
-
-        .cart-container {
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 30px;
-        }
-
-        .cart-items {
-            background: #fafafa;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .cart-header {
-            display: grid;
-            grid-template-columns: 50px 3fr 1fr 1fr;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #eee;
-            font-weight: 600;
-            margin-bottom: 20px;
-            align-items: center;
-            color: #202b1d;
-        }
-
-        .cart-item {
-            display: grid;
-            grid-template-columns: 50px 3fr 1fr 1fr;
-            align-items: center;
-            padding: 15px 0;
-            border-bottom: 1px solid #f5f5f5;
-            transition: background-color 0.2s ease;
-        }
-
-            .cart-item:hover {
-                background-color: #f9f9f9;
-            }
-
-        .item-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .item-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 5px;
-            object-fit: cover;
-            border: 1px solid #eee;
-            transition: transform 0.2s ease;
-        }
-
-            .item-image:hover {
-                transform: scale(1.05);
-            }
-
-        .item-details h4 {
-            font-family: 'Playfair Display', serif;
-            margin-bottom: 5px;
-            font-size: 1.1rem;
-            color: #202b1d;
-        }
-
-        .item-details p {
-            color: #666;
-            font-size: 0.9rem;
-        }
-
-        .item-price {
-            font-weight: 500;
-            color: #202b1d;
-        }
-
-        .item-total {
-            font-weight: 500;
-            color: #202b1d;
-        }
-
-        .remove-item {
-            color: #999;
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 1.1rem;
-            margin-left: 10px;
-            transition: color 0.2s ease;
-        }
-
-            .remove-item:hover {
-                color: #202b1d;
-            }
-
-        .checkbox-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .checkbox-input {
-            width: 18px;
-            height: 18px;
-            accent-color: #202b1d;
-            cursor: pointer;
-        }
-
-        .cart-summary {
-            background: #fafafa;
-            border-radius: 10px;
-            padding: 20px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            height: fit-content;
-            position: sticky;
-            top: 20px;
-        }
-
-        .summary-title {
-            font-family: 'Playfair Display', serif;
-            color: #202b1d;
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f5f5f5;
-            font-size: 0.95rem;
-        }
-
-        .total-row {
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ddd;
-            color: #202b1d;
-        }
-
-        .checkout-btn {
-            width: 100%;
-            padding: 12px;
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1rem;
-            font-weight: 500;
-            margin-top: 20px;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s ease;
-        }
-
-            .checkout-btn:hover {
-                background-color: #1a2318;
-                transform: translateY(-1px);
-            }
-
-            .checkout-btn:disabled {
-                background-color: #ccc;
-                cursor: not-allowed;
-                transform: none;
-            }
-
-        .cart-actions {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-top: 20px;
-            padding-top: 20px;
-            border-top: 1px solid #eee;
-        }
-
-        .select-all {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .select-all-label {
-            font-size: 0.9rem;
-            color: #555;
-        }
-
-        .empty-cart {
-            text-align: center;
-            padding: 50px 0;
-        }
-
-            .empty-cart i {
-                font-size: 3rem;
-                color: #ddd;
-                margin-bottom: 20px;
-            }
-
-            .empty-cart p {
-                color: #777;
-                margin-bottom: 20px;
-            }
-
-        .continue-shopping {
-            display: inline-block;
-            padding: 10px 20px;
-            background-color: #202b1d;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            transition: background-color 0.3s, transform 0.2s ease;
-        }
-
-            .continue-shopping:hover {
-                background-color: #1a2318;
-                transform: translateY(-1px);
-            }
-
-        @media (max-width: 992px) {
-            .cart-container {
-                grid-template-columns: 1fr;
-            }
-
-            .cart-summary {
-                position: static;
-            }
-
-            .content-container {
-                padding: 20px;
-            }
-        }
-
-        @media (max-width: 768px) {
-            nav {
-                padding: 10px 5%;
-            }
-
-            .logo {
-                font-size: 1.5rem;
-            }
-
-            .nav-links {
-                position: fixed;
-                top: 90px;
-                left: 0;
-                width: 100%;
-                background-color: #202b1d;
-                flex-direction: column;
-                align-items: center;
-                padding: 20px 0;
-                transform: translateY(-100%);
-                opacity: 0;
-                transition: all 0.3s;
-                pointer-events: none;
-            }
-
-                .nav-links.active {
-                    transform: translateY(0);
-                    opacity: 1;
-                    pointer-events: all;
-                }
-
-                .nav-links li {
-                    margin: 15px 0;
-                }
-
-                .nav-links a {
-                    color: white;
-                }
-
-                    .nav-links a:hover {
-                        color: #ecd5a6;
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gallery: {
+                            50: '#f7f8f6',
+                            100: '#edf0eb',
+                            200: '#d7ded3',
+                            500: '#485e43',
+                            700: '#2b3b28',
+                            800: '#202b1d',
+                            900: '#172015',
+                            gold: '#c5a059'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                     }
-
-            .mobile-menu-btn {
-                display: block;
+                }
             }
-
-            .profile-menu {
-                top: 60px;
-                right: 5%;
-                min-width: 150px;
-            }
-
-            .cart-header {
-                display: none;
-            }
-
-            .cart-item {
-                grid-template-columns: 1fr;
-                grid-template-areas:
-                    "checkbox info"
-                    "price total";
-                gap: 15px;
-                position: relative;
-                padding: 20px 0;
-            }
-
-            .checkbox-container {
-                grid-area: checkbox;
-                justify-content: flex-start;
-            }
-
-            .item-info {
-                grid-area: info;
-            }
-
-            .item-price {
-                grid-area: price;
-                text-align: left;
-                padding-left: 65px;
-            }
-
-            .item-total {
-                grid-area: total;
-                text-align: right;
-            }
-
-            .remove-item {
-                position: absolute;
-                top: 20px;
-                right: 0;
-            }
+        }
+    </script>
+    <style>
+        .backdrop-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
     </style>
 </head>
-<body>
-    <nav id="navbar">
-         <div class="nav-left">
-                <ul class="nav-links">
-                    <li><a href="../index.php">Home</a></li>
-                    <li><a href="../index.php#features">Features</a></li>
-                    <li><a href="../index.php#gallery">Gallery</a></li>
-                    <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="../index.php#about">About Us</a></li>
-                </ul>
-            </div>
-        <div class="logo">VirtuGallery</div>
-        <div class="nav-right">
-            <a href="cart.html" class="cart-icon">
-                <i class="fas fa-shopping-cart"></i>
-                <span class="cart-count">3</span>
-            </a>
-            <div class="profile-container">
-                <div class="profile-icon">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="profile-menu">
-                    <a href="UserProfilePage.php">Profile</a>
-                    <a href="settings.php">Settings</a>
-                    <a href="UserProfilePage.php">My Collection</a>
-                    <a href="#">Logout</a>
+
+<body class="bg-gallery-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-40 backdrop-glass border-b border-gray-200/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="../index.php" class="flex items-center space-x-3">
+                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md">V</span>
+                    <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                </a>
+                <div class="flex items-center space-x-6 text-sm font-medium">
+                    <a href="Marketplace.php" class="text-gray-600 hover:text-gallery-800 transition-colors flex items-center space-x-2">
+                        <i class="fas fa-arrow-left text-xs"></i>
+                        <span>Continue Shopping</span>
+                    </a>
                 </div>
             </div>
-            <button class="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
     </nav>
 
-    <div class="cart-content">
-        <div class="content-container">
-            <h1 class="page-title">Your Cart</h1>
+    <!-- Main Cart Container -->
+    <main class="pt-28 pb-20 flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div class="mb-8">
+            <span class="text-xs font-bold uppercase tracking-widest text-gallery-gold">Review & Collect</span>
+            <h1 class="font-serif text-3xl sm:text-4xl font-bold text-gallery-900 mt-1">Your Curated Cart</h1>
+        </div>
 
-            <div class="cart-container">
-                <div class="cart-items">
-                    <div class="cart-header">
-                        <div class="checkbox-container">
-                            <input type="checkbox" id="select-all" class="checkbox-input">
-                        </div>
-                        <div>Artwork</div>
-                        <div>Price</div>
-                        <div>Total</div>
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Cart Items List (8 cols) -->
+            <div class="lg:col-span-8 bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm">
+                
+                <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+                    <label class="flex items-center space-x-3 text-sm font-semibold text-gray-700 cursor-pointer">
+                        <input type="checkbox" id="select-all-checkbox" checked onchange="toggleSelectAll(this)" 
+                               class="w-4 h-4 rounded text-gallery-800 focus:ring-gallery-800 border-gray-300">
+                        <span>Select All Items (<span id="cart-total-count">0</span>)</span>
+                    </label>
+                    <button onclick="clearEntireCart()" class="text-xs text-red-600 hover:text-red-700 font-semibold">Clear Cart</button>
+                </div>
+
+                <!-- Items Container -->
+                <div id="cart-items-container" class="divide-y divide-gray-100">
+                    <!-- Populated dynamically via JS -->
+                </div>
+
+                <!-- Empty State -->
+                <div id="cart-empty-state" class="hidden py-16 text-center">
+                    <div class="w-16 h-16 rounded-full bg-gallery-100 text-gallery-800 flex items-center justify-center mx-auto text-2xl mb-4">
+                        <i class="fas fa-shopping-bag"></i>
                     </div>
+                    <h3 class="font-serif text-2xl font-bold text-gallery-900">Your collection is empty</h3>
+                    <p class="text-sm text-gray-500 mt-2 max-w-sm mx-auto font-light">
+                        Discover original authentic paintings, sculptures, and photography from Filipino independent creators.
+                    </p>
+                    <a href="Marketplace.php" class="inline-block mt-6 px-8 py-3.5 bg-gallery-800 hover:bg-gallery-900 text-white rounded-full text-xs font-bold uppercase tracking-wider shadow-md transition-all">
+                        Browse Marketplace
+                    </a>
+                </div>
 
-                    <div class="cart-item">
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="checkbox-input item-checkbox" checked>
-                        </div>
-                        <div class="item-info">
-                            <img src="https://source.unsplash.com/random/300x300?art1" alt="Starry Night" class="item-image">
-                            <div class="item-details">
-                                <h4>Starry Night</h4>
-                                <p>by Vincent Van Gogh</p>
-                            </div>
-                        </div>
-                        <div class="item-price">₱1,200</div>
-                        <div class="item-total">₱1,200</div>
-                        <button class="remove-item"><i class="fas fa-trash"></i></button>
+            </div>
+
+            <!-- Order Summary Sticky Card (4 cols) -->
+            <div class="lg:col-span-4 bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm sticky top-28">
+                <h3 class="font-serif text-xl font-bold text-gallery-900 pb-4 border-b border-gray-100">Order Summary</h3>
+
+                <div class="space-y-4 py-5 text-sm text-gray-600 border-b border-gray-100">
+                    <div class="flex justify-between">
+                        <span>Selected Items (<span id="summary-item-count">0</span>)</span>
+                        <span id="summary-subtotal" class="font-semibold text-gallery-900">₱0.00</span>
                     </div>
-
-                    <div class="cart-item">
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="checkbox-input item-checkbox" checked>
-                        </div>
-                        <div class="item-info">
-                            <img src="https://source.unsplash.com/random/300x300?art2" alt="The Persistence of Memory" class="item-image">
-                            <div class="item-details">
-                                <h4>The Persistence of Memory</h4>
-                                <p>by Salvador Dali</p>
-                            </div>
-                        </div>
-                        <div class="item-price">₱950</div>
-                        <div class="item-total">₱950</div>
-                        <button class="remove-item"><i class="fas fa-trash"></i></button>
+                    <div class="flex justify-between">
+                        <span>Fine Art Courier (Insured)</span>
+                        <span id="summary-shipping" class="font-semibold text-gallery-900">₱250.00</span>
                     </div>
-
-                    <div class="cart-item">
-                        <div class="checkbox-container">
-                            <input type="checkbox" class="checkbox-input item-checkbox" checked>
-                        </div>
-                        <div class="item-info">
-                            <img src="https://source.unsplash.com/random/300x300?art3" alt="Girl with a Pearl Earring" class="item-image">
-                            <div class="item-details">
-                                <h4>Girl with a Pearl Earring</h4>
-                                <p>by Johannes Vermeer</p>
-                            </div>
-                        </div>
-                        <div class="item-price">₱1,800</div>
-                        <div class="item-total">₱1,800</div>
-                        <button class="remove-item"><i class="fas fa-trash"></i></button>
-                    </div>
-
-                    <div class="cart-actions">
-                        <div class="select-all">
-                            <input type="checkbox" id="select-all-bottom" class="checkbox-input">
-                            <label for="select-all-bottom" class="select-all-label">Select all (3)</label>
-                        </div>
-                        <button class="remove-item">Delete</button>
+                    <div class="flex justify-between text-xs text-gray-400">
+                        <span>Packaging & Certificate of Authenticity</span>
+                        <span class="text-emerald-600 font-semibold">FREE</span>
                     </div>
                 </div>
 
-                <div class="cart-summary">
-                    <h3 class="summary-title">Order Summary</h3>
-                    <div class="summary-row">
-                        <span class="subtotal-text">Subtotal (3 items)</span>
-                        <span class="subtotal-amount">₱3,950</span>
+                <div class="pt-5 pb-6">
+                    <div class="flex justify-between items-baseline">
+                        <span class="font-serif text-lg font-bold text-gallery-900">Total Investment</span>
+                        <span id="summary-total" class="font-serif text-2xl font-bold text-gallery-900">₱0.00</span>
                     </div>
-                    <div class="summary-row">
-                        <span>Shipping Fee</span>
-                        <span class="shipping-fee">₱50</span>
-                    </div>
-                    <div class="summary-row">
-                        <span>Tax</span>
-                        <span class="tax-amount">₱395</span>
-                    </div>
-                    <div class="summary-row total-row">
-                        <span>Total</span>
-                        <span class="total-amount">₱4,395</span>
-                    </div>
-                    <button class="checkout-btn" id="checkout-btn" onclick="window.location.href='../Pages/Checkouts.html'">Checkout (3 items)</button>
+                    <p class="text-[11px] text-gray-400 mt-1">Taxes and insured delivery included.</p>
+                </div>
+
+                <button id="checkout-btn" onclick="proceedToCheckout()" class="w-full py-4 bg-gallery-800 hover:bg-gallery-900 text-white rounded-2xl font-semibold shadow-lg hover:shadow-xl transition-all flex items-center justify-center space-x-2">
+                    <span>Proceed to Checkout</span>
+                    <i class="fas fa-lock text-xs text-gallery-gold"></i>
+                </button>
+
+                <div class="mt-6 flex items-center justify-center space-x-4 text-gray-400 text-xs">
+                    <span class="flex items-center gap-1"><i class="fas fa-shield-alt text-gallery-gold"></i> Secure Payment</span>
+                    <span class="flex items-center gap-1"><i class="fas fa-truck text-gallery-gold"></i> Nationwide Delivery</span>
                 </div>
             </div>
+
         </div>
-    </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-6 text-center text-xs text-gray-500">
+        <p>© <?= date('Y') ?> VirtuGallery — Safe & Curated Fine Art Transactions</p>
+    </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const profileIcon = document.querySelector('.profile-icon');
-            const profileMenu = document.querySelector('.profile-menu');
-            const profileContainer = document.querySelector('.profile-container');
+        function getCart() {
+            try {
+                return JSON.parse(localStorage.getItem('virtugallery_cart')) || [];
+            } catch (e) {
+                return [];
+            }
+        }
 
-            profileIcon.addEventListener('click', function (e) {
-                if (window.innerWidth <= 768) {
-                    e.preventDefault();
-                    profileMenu.classList.toggle('active');
-                }
-            });
+        function saveCart(cart) {
+            localStorage.setItem('virtugallery_cart', JSON.stringify(cart));
+            renderCart();
+        }
 
-            document.addEventListener('click', function (e) {
-                if (!profileContainer.contains(e.target) && window.innerWidth <= 768) {
-                    profileMenu.classList.remove('active');
-                }
-            });
+        function renderCart() {
+            const cart = getCart();
+            const container = document.getElementById('cart-items-container');
+            const emptyState = document.getElementById('cart-empty-state');
+            const totalCountEl = document.getElementById('cart-total-count');
+            const checkoutBtn = document.getElementById('checkout-btn');
 
-            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            mobileMenuBtn.addEventListener('click', function () {
-                navLinks.classList.toggle('active');
-                const icon = mobileMenuBtn.querySelector('i');
-                if (navLinks.classList.contains('active')) {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-times');
-                } else {
-                    icon.classList.remove('fa-times');
-                    icon.classList.add('fa-bars');
-                }
-            });
+            totalCountEl.innerText = cart.length;
 
-            document.querySelectorAll('.nav-links a').forEach(link => {
-                link.addEventListener('click', function () {
-                    if (navLinks.classList.contains('active')) {
-                        navLinks.classList.remove('active');
-                        const icon = mobileMenuBtn.querySelector('i');
-                        icon.classList.remove('fa-times');
-                        icon.classList.add('fa-bars');
-                    }
-                });
-            });
-
-            const navbar = document.getElementById('navbar');
-            window.addEventListener('scroll', function () {
-                if (window.scrollY > 50) {
-                    navbar.classList.add('scrolled');
-                } else {
-                    navbar.classList.remove('scrolled');
-                }
-            });
-
-            const removeBtns = document.querySelectorAll('.remove-item');
-            removeBtns.forEach(btn => {
-                btn.addEventListener('click', function () {
-                    if (this.innerHTML.includes('Delete')) {
-                        document.querySelectorAll('.item-checkbox:checked').forEach(checkbox => {
-                            checkbox.closest('.cart-item').remove();
-                        });
-                    } else {
-                        this.closest('.cart-item').remove();
-                    }
-                    updateCartCount();
-                    updateSelection();
-                    updateCartSummary();
-                });
-            });
-
-            const selectAllCheckboxes = document.querySelectorAll('#select-all, #select-all-bottom');
-            const itemCheckboxes = document.querySelectorAll('.item-checkbox');
-
-            function updateSelection() {
-                const selectedItems = document.querySelectorAll('.item-checkbox:checked').length;
-                const totalItems = document.querySelectorAll('.item-checkbox').length;
-
-                const allChecked = selectedItems === totalItems && totalItems > 0;
-                const someChecked = selectedItems > 0 && selectedItems < totalItems;
-
-                selectAllCheckboxes.forEach(checkbox => {
-                    checkbox.checked = allChecked;
-                    checkbox.indeterminate = someChecked;
-                });
-
-                document.querySelector('.select-all-label').textContent = `Select all (${totalItems})`;
-
-                const checkoutBtn = document.getElementById('checkout-btn');
-                if (selectedItems > 0) {
-                    checkoutBtn.disabled = false;
-                    checkoutBtn.textContent = `Checkout (${selectedItems} item${selectedItems > 1 ? 's' : ''})`;
-                } else {
-                    checkoutBtn.disabled = true;
-                    checkoutBtn.textContent = 'Checkout';
-                }
-
-                updateCartSummary();
+            if (cart.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                checkoutBtn.disabled = true;
+                checkoutBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                updateSummary([]);
+                return;
             }
 
-            selectAllCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', function () {
-                    const isChecked = this.checked;
-                    itemCheckboxes.forEach(itemCheckbox => {
-                        itemCheckbox.checked = isChecked;
-                    });
-                    updateSelection();
-                });
+            emptyState.classList.add('hidden');
+            checkoutBtn.disabled = false;
+            checkoutBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+
+            container.innerHTML = cart.map((item, idx) => `
+                <div class="py-5 flex items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4 min-w-0">
+                        <input type="checkbox" checked onchange="calculateSummary()" class="item-checkbox w-4 h-4 rounded text-gallery-800 focus:ring-gallery-800 border-gray-300" data-idx="${idx}">
+                        
+                        <div class="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0 border border-gray-200">
+                            <img src="${item.image.startsWith('../') || item.image.startsWith('http') ? item.image : '../' + item.image}" alt="${item.title}" class="w-full h-full object-cover">
+                        </div>
+
+                        <div class="min-w-0">
+                            <h4 class="font-serif text-base font-bold text-gallery-900 truncate">${item.title}</h4>
+                            <p class="text-xs text-gray-500">by ${item.artist}</p>
+                            <span class="inline-block text-[10px] uppercase font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full mt-1">Available Piece</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center space-x-6 flex-shrink-0">
+                        <span class="font-bold text-gallery-900 text-sm sm:text-base">₱${parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                        <button onclick="removeItem(${idx})" class="text-gray-400 hover:text-red-600 transition-colors p-2" title="Remove piece">
+                            <i class="far fa-trash-alt text-base"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            calculateSummary();
+        }
+
+        function calculateSummary() {
+            const cart = getCart();
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            let selectedItems = [];
+
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    const idx = parseInt(cb.dataset.idx);
+                    if (cart[idx]) selectedItems.push(cart[idx]);
+                }
             });
 
-            itemCheckboxes.forEach(checkbox => {
-                checkbox.addEventListener('change', updateSelection);
+            updateSummary(selectedItems);
+        }
+
+        function updateSummary(selectedItems) {
+            const subtotal = selectedItems.reduce((sum, item) => sum + parseFloat(item.price), 0);
+            const shipping = selectedItems.length > 0 ? (subtotal > 20000 ? 0 : 250) : 0;
+            const total = subtotal + shipping;
+
+            document.getElementById('summary-item-count').innerText = selectedItems.length;
+            document.getElementById('summary-subtotal').innerText = `₱${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('summary-shipping').innerText = shipping === 0 ? (selectedItems.length > 0 ? 'FREE' : '₱0.00') : `₱${shipping.toFixed(2)}`;
+            document.getElementById('summary-total').innerText = `₱${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        }
+
+        function toggleSelectAll(masterCb) {
+            document.querySelectorAll('.item-checkbox').forEach(cb => {
+                cb.checked = masterCb.checked;
+            });
+            calculateSummary();
+        }
+
+        function removeItem(idx) {
+            const cart = getCart();
+            cart.splice(idx, 1);
+            saveCart(cart);
+        }
+
+        function clearEntireCart() {
+            if (confirm('Clear all artworks from your cart?')) {
+                saveCart([]);
+            }
+        }
+
+        function proceedToCheckout() {
+            const cart = getCart();
+            const checkboxes = document.querySelectorAll('.item-checkbox');
+            let selectedItems = [];
+
+            checkboxes.forEach(cb => {
+                if (cb.checked) {
+                    const idx = parseInt(cb.dataset.idx);
+                    if (cart[idx]) selectedItems.push(cart[idx]);
+                }
             });
 
-            function updateCartCount() {
-                const count = document.querySelectorAll('.cart-item').length;
-                const cartCountElement = document.querySelector('.cart-count');
-                cartCountElement.textContent = count;
-
-                if (count === 0) {
-                    document.querySelector('.cart-items').innerHTML = `
-                            <div class="empty-cart">
-                                <i class="fas fa-shopping-cart"></i>
-                                <h3>Your cart is empty</h3>
-                                <p>Browse our collection to find artworks you love</p>
-                                <a href="Checkouts.html" class="continue-shopping">Continue Shopping</a>
-                            </div>
-                        `;
-                    updateCartSummary();
-                }
+            if (selectedItems.length === 0) {
+                alert('Please select at least one artwork to checkout.');
+                return;
             }
 
-            function updateCartSummary() {
-                let subtotal = 0;
-                let selectedCount = 0;
+            localStorage.setItem('virtugallery_checkout_items', JSON.stringify(selectedItems));
+            window.location.href = 'Checkouts.html';
+        }
 
-                const cartItems = document.querySelectorAll('.cart-item');
-                if (cartItems.length === 0) {
-                    document.querySelector('.subtotal-text').textContent = `Subtotal (0 items)`;
-                    document.querySelector('.subtotal-amount').textContent = '₱0';
-                    document.querySelector('.shipping-fee').textContent = '₱0';
-                    document.querySelector('.tax-amount').textContent = '₱0';
-                    document.querySelector('.total-amount').textContent = '₱0';
-                    return;
-                }
-
-                cartItems.forEach(item => {
-                    const checkbox = item.querySelector('.item-checkbox');
-                    if (checkbox && checkbox.checked) {
-                        const priceText = item.querySelector('.item-total').textContent;
-                        const price = parseFloat(priceText.replace('₱', '').replace(',', ''));
-                        subtotal += price;
-                        selectedCount++;
-                    }
-                });
-
-                const shipping = selectedCount > 0 ? 50 : 0;
-                const tax = subtotal * 0.1;
-                const total = subtotal + shipping + tax;
-
-                document.querySelector('.subtotal-text').textContent = `Subtotal (${selectedCount} item${selectedCount !== 1 ? 's' : ''})`;
-                document.querySelector('.subtotal-amount').textContent = '₱' + subtotal.toLocaleString();
-                document.querySelector('.shipping-fee').textContent = '₱' + shipping.toFixed(0);
-                document.querySelector('.tax-amount').textContent = '₱' + tax.toFixed(0);
-                document.querySelector('.total-amount').textContent = '₱' + total.toFixed(0);
-            }
-
-            // Initialize the cart
-            updateSelection();
-            updateCartSummary();
+        document.addEventListener('DOMContentLoaded', () => {
+            renderCart();
         });
     </script>
 </body>
+
 </html>

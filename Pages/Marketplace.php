@@ -1,796 +1,343 @@
-﻿<!DOCTYPE html>
+<?php
+session_start();
+require_once __DIR__ . '/../db_connect.php';
+
+$isLoggedIn = isset($_SESSION['user_id']);
+$userEmail = $_SESSION['email'] ?? '';
+$currentUserId = $_SESSION['user_id'] ?? null;
+
+// Query all marketplace products
+try {
+    $stmt = $pdo->query("
+        SELECT 
+            p.id,
+            p.title,
+            p.description,
+            p.category,
+            p.price,
+            p.tags,
+            p.image_path,
+            p.created_at,
+            u.id AS artist_id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            u.municipality,
+            u.province,
+            u.profile_picture,
+            (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.post_type = 'product' AND p.price IS NOT NULL
+        ORDER BY p.created_at DESC
+    ");
+    $artworks = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $artworks = [];
+}
+?>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtu Gallery - Marketplace</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>VirtuGallery — Curated Fine Art Marketplace</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap"
-          rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            height: 100%;
-            font-family: 'Montserrat', sans-serif;
-            color: #333;
-            line-height: 1.6;
-            background-color: #f9f9f9;
-            padding-top: 90px;
-        }
-
-        h1,
-        h2,
-        h3 {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        /* Navigation Bar */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: white;
-            padding: 15px 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.3s ease, padding 0.3s ease;
-            height: 90px;
-        }
-
-        .nav-left,
-        .nav-right {
-            display: flex;
-            align-items: center;
-        }
-
-        nav.scrolled {
-            background-color: #202b1d;
-            padding: 10px 5%;
-        }
-
-            nav.scrolled .logo,
-            nav.scrolled .nav-links a,
-            nav.scrolled .profile-icon,
-            nav.scrolled .cart-icon {
-                color: white;
-            }
-
-                nav.scrolled .nav-links a:hover {
-                    color: #ecd5a6;
-                }
-
-                nav.scrolled .profile-icon:hover,
-                nav.scrolled .cart-icon:hover {
-                    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-                }
-
-            nav.scrolled .profile-menu a:hover {
-                color: #ecd5a6;
-            }
-
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            color: #202b1d;
-            font-weight: bold;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            transition: color 0.3s ease;
-        }
-
-        nav.scrolled .logo {
-            color: white;
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-            .nav-links li {
-                margin-left: 20px;
-                position: relative;
-            }
-
-            .nav-links a {
-                color: #333;
-                font-weight: 500;
-                transition: color 0.3s;
-                position: relative;
-            }
-
-                .nav-links a.active {
-                    color: #202b1d;
-                    font-weight: 600;
-                }
-
-                .nav-links a:hover {
-                    color: #202b1d;
-                }
-
-                .nav-links a::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    left: 0;
-                    width: 0;
-                    height: 2px;
-                    background-color: #202b1d;
-                    transition: width 0.3s;
-                }
-
-                .nav-links a:hover::after,
-                .nav-links a.active::after {
-                    width: 100%;
-                }
-
-        nav.scrolled .nav-links a::after {
-            background-color: #ecd5a6;
-        }
-
-        .profile-container {
-            position: relative;
-            margin-left: 10px;
-        }
-
-        .profile-icon,
-        .cart-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #202b1d;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-left: 10px;
-        }
-
-            .profile-icon:hover,
-            .cart-icon:hover {
-                transform: scale(1.1);
-                box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-            }
-
-        .cart-count {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-
-        .profile-menu {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-            z-index: 1000;
-            min-width: 180px;
-        }
-
-            .profile-container:hover .profile-menu,
-            .profile-menu.active {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-            .profile-menu a {
-                display: block;
-                padding: 12px 20px;
-                color: #333;
-                font-weight: 500;
-                transition: background-color 0.3s, color 0.3s;
-            }
-
-                .profile-menu a:hover {
-                    background-color: #f9f9f9;
-                    color: #202b1d;
-                }
-
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: #333;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        nav.scrolled .mobile-menu-btn {
-            color: white;
-        }
-
-        /* Marketplace Content */
-        .marketplace-content {
-            padding: 20px 5%;
-            background-color: #f9f9f9;
-            min-height: calc(100vh - 90px);
-        }
-
-        .marketplace-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .marketplace-title {
-            font-size: 1.5rem;
-            color: #202b1d;
-        }
-
-        .filter-controls {
-            display: flex;
-            gap: 8px;
-            background-color: rgba(32, 43, 29, 0.1);
-            border-radius: 8px;
-            padding: 2px;
-        }
-
-        .filter-btn {
-            padding: 8px 15px;
-            background: none;
-            border: none;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.95rem;
-            color: #333;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-        }
-
-            .filter-btn.active {
-                background-color: #202b1d;
-                color: white;
-                font-weight: 500;
-            }
-
-            .filter-btn:hover:not(.active) {
-                background-color: rgba(32, 43, 29, 0.2);
-            }
-
-        /* Artwork Grid */
-        .artwork-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-            gap: 20px;
-            padding: 20px 0;
-        }
-
-        .artwork-card {
-            background: white;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.08);
-            transition: all 0.3s ease;
-            display: flex;
-            flex-direction: column;
-        }
-
-            .artwork-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
-            }
-
-        .artwork-image-container {
-            position: relative;
-            width: 100%;
-            padding-top: 100%;
-            overflow: hidden;
-        }
-
-        .artwork-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.3s ease;
-        }
-
-        .artwork-card:hover .artwork-image {
-            transform: scale(1.03);
-        }
-
-        .artwork-info {
-            padding: 15px;
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .artwork-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.1rem;
-            font-weight: 700;
-            margin-bottom: 5px;
-            color: #202b1d;
-        }
-
-        .artwork-artist {
-            font-size: 0.9rem;
-            color: #666;
-            margin-bottom: 10px;
-        }
-
-        .artwork-price {
-            font-weight: 600;
-            color: #202b1d;
-            font-size: 1rem;
-            margin-top: auto;
-        }
-
-        .artwork-actions {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-
-        .view-btn {
-            background-color: white;
-            color: #202b1d;
-            border: 1px solid #202b1d;
-            border-radius: 4px;
-            padding: 8px 15px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-        }
-
-            .view-btn:hover {
-                background-color: #f0f0f0;
-            }
-
-        .add-to-cart {
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 8px 15px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-        }
-
-            .add-to-cart:hover {
-                background-color: #1a2318;
-                transform: translateY(-1px);
-            }
-
-        /* Artwork Modal */
-        .artwork-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.3s ease, visibility 0.3s ease;
-        }
-
-            .artwork-modal.active {
-                opacity: 1;
-                visibility: visible;
-            }
-
-        .modal-content {
-            background-color: white;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 900px;
-            max-height: 90vh;
-            overflow-y: auto;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: none;
-            border: none;
-            color: white;
-            font-size: 1.5rem;
-            cursor: pointer;
-            z-index: 2001;
-        }
-
-        .modal-body {
-            display: flex;
-            flex-direction: row;
-            padding: 30px;
-        }
-
-        .modal-image-container {
-            flex: 1;
-            min-width: 300px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            padding-right: 30px;
-        }
-
-        .modal-image {
-            max-width: 100%;
-            max-height: 60vh;
-            object-fit: contain;
-            border-radius: 8px;
-        }
-
-        .modal-details {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .modal-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 2rem;
-            color: #202b1d;
-            margin-bottom: 10px;
-        }
-
-        .modal-artist {
-            font-size: 1.2rem;
-            color: #666;
-            margin-bottom: 20px;
-        }
-
-        .modal-info-item {
-            margin-bottom: 15px;
-        }
-
-        .modal-info-label {
-            font-weight: 600;
-            color: #202b1d;
-            margin-bottom: 5px;
-        }
-
-        .modal-info-value {
-            color: #333;
-        }
-
-        .modal-description {
-            margin-top: 20px;
-            line-height: 1.6;
-        }
-
-        .modal-actions {
-            display: flex;
-            gap: 15px;
-            margin-top: 30px;
-        }
-
-        .modal-add-to-cart {
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            padding: 12px 25px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-        }
-
-            .modal-add-to-cart:hover {
-                background-color: #1a2318;
-            }
-
-        .modal-close-btn {
-            background-color: white;
-            color: #202b1d;
-            border: 1px solid #202b1d;
-            border-radius: 4px;
-            padding: 12px 25px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 1rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            flex: 1;
-        }
-
-            .modal-close-btn:hover {
-                background-color: #f0f0f0;
-            }
-
-        @media (max-width: 992px) {
-            .marketplace-header {
-                flex-direction: column;
-                align-items: flex-start;
-                gap: 15px;
-            }
-
-            .filter-controls {
-                flex-wrap: wrap;
-            }
-        }
-
-        @media (max-width: 768px) {
-            nav {
-                padding: 10px 5%;
-            }
-
-            .logo {
-                font-size: 1.5rem;
-                position: static;
-                transform: none;
-            }
-
-            .nav-links {
-                position: fixed;
-                top: 90px;
-                left: 0;
-                width: 100%;
-                background-color: #202b1d;
-                flex-direction: column;
-                align-items: center;
-                padding: 20px 0;
-                transform: translateY(-100%);
-                opacity: 0;
-                transition: all 0.3s;
-                pointer-events: none;
-            }
-
-                .nav-links.active {
-                    transform: translateY(0);
-                    opacity: 1;
-                    pointer-events: all;
-                }
-
-                .nav-links li {
-                    margin: 15px 0;
-                }
-
-                .nav-links a {
-                    color: white;
-                }
-
-                    .nav-links a:hover {
-                        color: #ecd5a6;
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gallery: {
+                            50: '#f7f8f6',
+                            100: '#edf0eb',
+                            200: '#d7ded3',
+                            500: '#485e43',
+                            700: '#2b3b28',
+                            800: '#202b1d',
+                            900: '#172015',
+                            gold: '#c5a059'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                     }
-
-            .mobile-menu-btn {
-                display: block;
+                }
             }
-
-            .profile-menu {
-                top: 60px;
-                right: 5%;
-                min-width: 150px;
-            }
-
-            /* Responsive modal */
-            .modal-body {
-                flex-direction: column;
-                padding: 20px;
-            }
-
-            .modal-image-container {
-                padding-right: 0;
-                padding-bottom: 20px;
-                min-width: auto;
-            }
-
-            .modal-image {
-                max-height: 40vh;
-            }
-
-            .modal-content {
-                width: 95%;
-            }
+        }
+    </script>
+    <style>
+        .backdrop-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .artwork-card {
+            transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .artwork-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px -5px rgba(32, 43, 29, 0.1);
         }
     </style>
 </head>
 
-<body>
-    <!-- Navigation -->
-    <nav id="navbar">
-         <div class="nav-left">
-                <ul class="nav-links">
-                    <li><a href="../index.php#hero">Home</a></li>
-                    <li><a href="../index.php#features">Features</a></li>
-                    <li><a href="../index.php#gallery">Gallery</a></li>
-                    <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="../index.php#about">About Us</a></li>
-                </ul>
-            </div>
-        <div class="logo">VirtuGallery</div>
-        <div class="nav-right">
-            <a href="cart.html" class="cart-icon">
-                <i class="fas fa-shopping-cart"></i>
-                <span class="cart-count">0</span>
-            </a>
-            <div class="profile-container">
-                <div class="profile-icon">
-                    <i class="fas fa-user"></i>
+<body class="bg-gallery-50 text-gray-800 font-sans antialiased selection:bg-gallery-800 selection:text-white min-h-screen flex flex-col justify-between">
+
+    <!-- Global Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none flex items-center space-x-3 bg-gallery-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-gallery-700/50">
+        <div id="toast-icon" class="text-gallery-gold"><i class="fas fa-check-circle text-lg"></i></div>
+        <p id="toast-message" class="text-sm font-medium">Notification</p>
+    </div>
+
+    <!-- Navigation Bar -->
+    <nav class="fixed top-0 left-0 right-0 z-40 backdrop-glass border-b border-gray-200/60 transition-all">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo -->
+                <a href="../index.php" class="flex items-center space-x-3 group">
+                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md">V</span>
+                    <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                </a>
+
+                <!-- Desktop Nav -->
+                <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
+                    <a href="../index.php" class="hover:text-gallery-800 transition-colors">Home</a>
+                    <a href="Marketplace.php" class="text-gallery-800 font-semibold border-b-2 border-gallery-800 pb-1">Marketplace</a>
+                    <a href="ranking.php" class="hover:text-gallery-800 transition-colors">Ranking</a>
+                    <?php if ($isLoggedIn): ?>
+                        <a href="home.php" class="hover:text-gallery-800 transition-colors">Community Feed</a>
+                    <?php endif; ?>
+                    <a href="../index.php#about" class="hover:text-gallery-800 transition-colors">About</a>
                 </div>
-                <div class="profile-menu">
-                    <a href="UserProfilePage.php">Profile</a>
-                    <a href="settings.php">Settings</a>
-                    <a href="UserProfilePage.php">My Collection</a>
-                    <a href="#">Logout</a>
+
+                <!-- Right Controls -->
+                <div class="flex items-center space-x-4">
+                    <!-- Cart -->
+                    <a href="cart.html" class="relative p-2 text-gray-700 hover:text-gallery-800" title="Shopping Cart">
+                        <i class="fas fa-shopping-bag text-xl"></i>
+                        <span id="nav-cart-badge" class="absolute top-0 right-0 w-5 h-5 bg-gallery-800 text-white rounded-full text-xs font-bold flex items-center justify-center scale-0 transition-transform">0</span>
+                    </a>
+
+                    <?php if ($isLoggedIn): ?>
+                        <a href="UserProfilePage.php" class="hidden sm:inline-flex items-center space-x-2 text-sm font-medium text-gallery-800 bg-gallery-100 hover:bg-gallery-200 px-4 py-2 rounded-full transition-colors">
+                            <i class="far fa-user"></i>
+                            <span>Profile</span>
+                        </a>
+                        <a href="../logout.php" class="text-xs uppercase tracking-wider font-semibold text-red-600 hover:text-red-700">Logout</a>
+                    <?php else: ?>
+                        <a href="../index.php" class="text-sm font-medium text-gray-700 hover:text-gallery-800">Sign In</a>
+                    <?php endif; ?>
+
+                    <button id="mobile-toggle" class="md:hidden p-2 text-gray-700 hover:text-gallery-800">
+                        <i class="fas fa-bars text-xl"></i>
+                    </button>
                 </div>
             </div>
-            <button class="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
     </nav>
 
-    <div class="marketplace-content">
-        <div class="marketplace-header">
-            <h1 class="marketplace-title">Marketplace</h1>
-            <div class="filter-controls">
-                <button class="filter-btn active">All</button>
-                <button class="filter-btn">Paintings</button>
-                <button class="filter-btn">Digital</button>
-                <button class="filter-btn">Photography</button>
-                <button class="filter-btn">Sculptures</button>
+    <!-- Mobile Menu Drawer -->
+    <div id="mobile-drawer" class="fixed inset-0 z-50 hidden">
+        <div id="mobile-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm"></div>
+        <div class="fixed right-0 top-0 bottom-0 w-3/4 max-w-xs bg-white p-6 shadow-2xl flex flex-col justify-between">
+            <div>
+                <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+                    <span class="font-serif text-xl font-bold">Menu</span>
+                    <button id="mobile-close" class="p-1 text-gray-400"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <div class="mt-6 flex flex-col space-y-4 text-sm font-medium">
+                    <a href="../index.php" class="py-2">Home</a>
+                    <a href="Marketplace.php" class="py-2 text-gallery-800 font-bold">Marketplace</a>
+                    <a href="ranking.php" class="py-2">Ranking</a>
+                    <a href="cart.html" class="py-2 flex items-center justify-between">
+                        <span>Cart</span>
+                        <span id="mobile-cart-count" class="bg-gallery-800 text-white text-xs px-2 py-0.5 rounded-full">0</span>
+                    </a>
+                    <?php if ($isLoggedIn): ?>
+                        <a href="home.php" class="py-2">Community Feed</a>
+                        <a href="UserProfilePage.php" class="py-2">My Profile</a>
+                        <a href="../logout.php" class="py-2 text-red-600">Sign Out</a>
+                    <?php else: ?>
+                        <a href="../index.php" class="py-2 text-gallery-800 font-bold">Sign In / Register</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <main class="pt-28 pb-20 flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        
+        <!-- Marketplace Banner & Search -->
+        <div class="bg-white rounded-3xl p-6 sm:p-10 border border-gray-100 shadow-sm mb-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div class="max-w-xl">
+                <span class="text-xs uppercase tracking-widest text-gallery-gold font-bold">Curated Catalog</span>
+                <h1 class="font-serif text-3xl sm:text-4xl font-bold text-gallery-900 mt-1">Art Marketplace</h1>
+                <p class="text-gray-500 text-sm sm:text-base mt-2 font-light">
+                    Direct from certified studios in Laguna and contemporary creators nationwide. Certified original works ready for safe home delivery.
+                </p>
+            </div>
+
+            <!-- Search Bar -->
+            <div class="w-full lg:w-96">
+                <div class="relative">
+                    <input type="text" id="search-input" oninput="applyFilters()" placeholder="Search title, artist, or tags..." 
+                           class="w-full pl-11 pr-4 py-3.5 rounded-2xl bg-gallery-50 border border-gray-200 text-sm focus:border-gallery-800 focus:bg-white focus:outline-none transition-all shadow-inner" />
+                    <i class="fas fa-search absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                </div>
             </div>
         </div>
 
-        <div class="artwork-grid">
-            <!-- Artwork 1 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_4_683f635f9d55e.jpg" alt="Artwork" class="artwork-image">
-                </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">Monalisa</div>
-                    <div class="artwork-artist">by Clara Bennett</div>
-                    <div class="artwork-price">₱25,000</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
-                        </button>
-                    </div>
-                </div>
+        <!-- Filter Bar & Sort Controls -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+            
+            <!-- Category Filter Buttons -->
+            <div class="flex items-center space-x-2 overflow-x-auto pb-2 sm:pb-0" id="category-filters">
+                <button onclick="setCategory('all', this)" class="cat-pill active px-4 py-2 rounded-full text-xs font-semibold bg-gallery-800 text-white shadow-sm transition-all flex-shrink-0">All Works</button>
+                <button onclick="setCategory('paintings', this)" class="cat-pill px-4 py-2 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all flex-shrink-0">Paintings</button>
+                <button onclick="setCategory('sculpture', this)" class="cat-pill px-4 py-2 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all flex-shrink-0">Sculptures</button>
+                <button onclick="setCategory('photography', this)" class="cat-pill px-4 py-2 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all flex-shrink-0">Photography</button>
+                <button onclick="setCategory('pottery', this)" class="cat-pill px-4 py-2 rounded-full text-xs font-semibold bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all flex-shrink-0">Pottery</button>
             </div>
 
-            <!-- Artwork 2 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_3_68438343461c4.jpg" alt="Artwork" class="artwork-image">
+            <!-- Sort By Dropdown -->
+            <div class="flex items-center space-x-2 text-xs font-medium text-gray-500 self-end sm:self-auto">
+                <span>Sort by:</span>
+                <select id="sort-select" onchange="applyFilters()" class="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-semibold text-gray-800 focus:outline-none focus:border-gallery-800">
+                    <option value="newest">Newest Additions</option>
+                    <option value="popular">Most Liked</option>
+                    <option value="price-asc">Price: Low to High</option>
+                    <option value="price-desc">Price: High to Low</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Dynamic Product Artworks Grid -->
+        <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
+            <?php foreach ($artworks as $art): ?>
+                <div class="art-item artwork-card bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col justify-between"
+                     data-id="<?= (int)$art['id'] ?>"
+                     data-category="<?= htmlspecialchars($art['category']) ?>"
+                     data-title="<?= htmlspecialchars(strtolower($art['title'])) ?>"
+                     data-artist="<?= htmlspecialchars(strtolower($art['first_name'] . ' ' . $art['last_name'])) ?>"
+                     data-tags="<?= htmlspecialchars(strtolower($art['tags'] ?? '')) ?>"
+                     data-price="<?= (float)$art['price'] ?>"
+                     data-likes="<?= (int)$art['likes_count'] ?>">
+
+                    <!-- Artwork Thumbnail -->
+                    <div class="relative aspect-square overflow-hidden bg-gray-50 group">
+                        <img src="../<?= htmlspecialchars($art['image_path']) ?>" 
+                             alt="<?= htmlspecialchars($art['title']) ?>" 
+                             loading="lazy"
+                             class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        
+                        <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-gallery-800 text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
+                            <?= htmlspecialchars($art['category']) ?>
+                        </span>
+
+                        <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-3">
+                            <button onclick="openModalQuickView(<?= htmlspecialchars(json_encode($art)) ?>)" 
+                                    class="w-10 h-10 rounded-full bg-white text-gray-800 flex items-center justify-center hover:bg-gallery-gold hover:text-white transition-colors shadow-lg"
+                                    title="View Details">
+                                <i class="fas fa-eye text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Details -->
+                    <div class="p-5 flex flex-col flex-grow justify-between">
+                        <div>
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="font-serif text-lg font-bold text-gallery-900 truncate" title="<?= htmlspecialchars($art['title']) ?>">
+                                    <?= htmlspecialchars($art['title']) ?>
+                                </h3>
+                                <div class="flex items-center space-x-1 text-xs text-rose-500 font-semibold">
+                                    <i class="fas fa-heart"></i>
+                                    <span><?= $art['likes_count'] ?></span>
+                                </div>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">
+                                by <span class="font-medium text-gray-800"><?= htmlspecialchars($art['first_name'] . ' ' . $art['last_name']) ?></span>
+                            </p>
+                            <p class="text-[11px] text-gray-400 mt-0.5"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i><?= htmlspecialchars($art['municipality'] . ', ' . $art['province']) ?></p>
+                        </div>
+
+                        <div class="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] uppercase text-gray-400 font-bold tracking-wider block">Price</span>
+                                <span class="text-base font-bold text-gallery-900">₱<?= number_format($art['price'], 2) ?></span>
+                            </div>
+
+                            <button onclick="addToCart({
+                                        id: <?= (int)$art['id'] ?>,
+                                        title: '<?= htmlspecialchars(addslashes($art['title'])) ?>',
+                                        artist: '<?= htmlspecialchars(addslashes($art['first_name'] . ' ' . $art['last_name'])) ?>',
+                                        price: <?= (float)$art['price'] ?>,
+                                        image: '<?= htmlspecialchars(addslashes($art['image_path'])) ?>'
+                                    })" 
+                                    class="inline-flex items-center space-x-1.5 text-xs font-semibold bg-gallery-800 hover:bg-gallery-900 text-white px-4 py-2.5 rounded-xl shadow-sm transition-all">
+                                <i class="fas fa-cart-plus text-xs text-gallery-gold"></i>
+                                <span>Add to Cart</span>
+                            </button>
+                        </div>
+                    </div>
+
                 </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">Medusa</div>
-                    <div class="artwork-artist">by Marcus Lee</div>
-                    <div class="artwork-price">₱17,500</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
-                        </button>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- No Results Fallback -->
+        <div id="no-results" class="hidden py-24 text-center">
+            <i class="fas fa-search text-4xl text-gray-300 mb-3"></i>
+            <h3 class="font-serif text-xl font-bold text-gray-700">No matching artworks found</h3>
+            <p class="text-xs text-gray-400 mt-1">Try adjusting your search criteria or category filter.</p>
+        </div>
+
+    </main>
+
+    <!-- Quick View Details Modal -->
+    <div id="detail-modal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeDetailModal()"></div>
+        <div class="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-3xl sm:w-full bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+            <div class="w-full md:w-1/2 bg-gray-100 relative aspect-square md:aspect-auto">
+                <img id="modal-img" src="" alt="Artwork" class="w-full h-full object-cover" />
+            </div>
+            <div class="w-full md:w-1/2 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+                <div>
+                    <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                        <span id="modal-category" class="text-xs font-bold uppercase tracking-wider text-gallery-gold"></span>
+                        <button onclick="closeDetailModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-lg"></i></button>
+                    </div>
+                    <h3 id="modal-title" class="font-serif text-2xl sm:text-3xl font-bold text-gallery-900 mt-3"></h3>
+                    <p id="modal-artist" class="text-sm text-gray-500 mt-1 font-medium"></p>
+                    <p id="modal-location" class="text-xs text-gray-400 mt-0.5"><i class="fas fa-map-marker-alt text-[10px] mr-1"></i></p>
+                    
+                    <p id="modal-desc" class="text-gray-600 text-sm mt-5 leading-relaxed font-light"></p>
+                    
+                    <div class="mt-4 pt-4 border-t border-gray-100">
+                        <span class="text-xs font-semibold text-gray-500 block mb-1">Authenticity & Delivery:</span>
+                        <p class="text-xs text-gray-400 leading-normal">Includes Signed Certificate of Authenticity. Handled with museum packaging and insured local courier.</p>
                     </div>
                 </div>
-            </div>
 
-            <!-- Artwork 3 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_3_6843823bdb475.jpg" alt="Artwork" class="artwork-image">
-                </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">Mountain Peak</div>
-                    <div class="artwork-artist">by Sophia Chen</div>
-                    <div class="artwork-price">₱32,000</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
-                        </button>
+                <div class="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between gap-3">
+                    <div>
+                        <span class="text-[10px] uppercase text-gray-400 font-bold block">Investment</span>
+                        <span id="modal-price" class="text-2xl font-bold text-gallery-900"></span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Artwork 4 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_3_684383c848806.jpg" alt="Artwork" class="artwork-image">
-                </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">Forest Path</div>
-                    <div class="artwork-artist">by David Wilson</div>
-                    <div class="artwork-price">₱15,000</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
+                    <div class="flex items-center space-x-2">
+                        <button id="modal-cart-btn" class="bg-gallery-800 hover:bg-gallery-900 text-white px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all">
+                            Add to Cart
                         </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Artwork 5 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_3_684381ca59dde.jpg" alt="Artwork" class="artwork-image">
-                </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">Abstract Thoughts</div>
-                    <div class="artwork-artist">by Emma Johnson</div>
-                    <div class="artwork-price">₱34,500</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Artwork 6 -->
-            <div class="artwork-card">
-                <div class="artwork-image-container">
-                    <img src="../uploads/artwork_3_68439f96c07df.jpg" alt="Artwork" class="artwork-image">
-                </div>
-                <div class="artwork-info">
-                    <div class="artwork-title">City Lights</div>
-                    <div class="artwork-artist">by Ryan Park</div>
-                    <div class="artwork-price">₱21,000</div>
-                    <div class="artwork-actions">
-                        <button class="view-btn">View</button>
-                        <button class="add-to-cart">
-                            <i class="fas fa-cart-plus"></i> Cart
+                        <button id="modal-buy-btn" class="bg-gallery-gold hover:bg-amber-600 text-white px-5 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition-all">
+                            Buy Now
                         </button>
                     </div>
                 </div>
@@ -798,290 +345,172 @@
         </div>
     </div>
 
-    <!-- Artwork Modal -->
-    <div class="artwork-modal" id="artworkModal">
-        <button class="modal-close" id="modalClose">
-            <i class="fas fa-times"></i>
-        </button>
-        <div class="modal-content">
-            <div class="modal-body">
-                <div class="modal-image-container">
-                    <img src="" alt="Artwork" class="modal-image" id="modalImage">
-                </div>
-                <div class="modal-details">
-                    <h2 class="modal-title" id="modalTitle"></h2>
-                    <div class="modal-artist" id="modalArtist"></div>
-
-                    <div class="modal-info-item">
-                        <div class="modal-info-label">Location</div>
-                        <div class="modal-info-value" id="modalLocation">San Pablo, Laguna</div>
-                    </div>
-
-                    <div class="modal-info-item">
-                        <div class="modal-info-label">Price</div>
-                        <div class="modal-info-value" id="modalPrice"></div>
-                    </div>
-
-                    <div class="modal-info-item">
-                        <div class="modal-info-label">Description</div>
-                        <p class="modal-description" id="modalDescription">
-                            This beautiful artwork captures the essence of nature with vibrant colors and intricate
-                            details.
-                            The artist has masterfully blended traditional techniques with modern sensibilities to
-                            create
-                            a piece that is both timeless and contemporary. Each brushstroke tells a story, inviting the
-                            viewer to explore deeper meanings and personal interpretations.
-                        </p>
-                    </div>
-
-                    <div class="modal-actions">
-                        <button class="modal-add-to-cart" id="modalAddToCart">
-                            <i class="fas fa-cart-plus"></i> Add to Cart
-                        </button>
-                        <button class="modal-close-btn" id="modalCloseBtn">Close</button>
-                    </div>
-                </div>
-            </div>
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-8 text-center text-xs text-gray-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span class="font-serif font-bold text-gallery-900">VirtuGallery Marketplace</span>
+            <span>All artworks direct from independent living artists.</span>
+            <span>© <?= date('Y') ?> VirtuGallery</span>
         </div>
-    </div>
+    </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Initialize cart count
-            let cartCount = 0;
-            const cartCountElement = document.querySelector('.cart-count');
-            const cartItems = [];
-
-            // Toggle profile menu on mobile click
-            const profileIcon = document.querySelector('.profile-icon');
-            const profileMenu = document.querySelector('.profile-menu');
-            const profileContainer = document.querySelector('.profile-container');
-
-            profileIcon.addEventListener('click', function (e) {
-                if (window.innerWidth <= 768) {
-                    e.preventDefault();
-                    profileMenu.classList.toggle('active');
-                }
-            });
-
-            // Close profile menu when clicking outside
-            document.addEventListener('click', function (e) {
-                if (!profileContainer.contains(e.target) && window.innerWidth <= 768) {
-                    profileMenu.classList.remove('active');
-                }
-            });
-
-            // Mobile menu toggle
-            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            mobileMenuBtn.addEventListener('click', function () {
-                navLinks.classList.toggle('active');
-                const icon = mobileMenuBtn.querySelector('i');
-                if (navLinks.classList.contains('active')) {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-times');
-                } else {
-                    icon.classList.remove('fa-times');
-                    icon.classList.add('fa-bars');
-                }
-            });
-
-            // Close mobile menu when clicking a link
-            document.querySelectorAll('.nav-links a').forEach(link => {
-                link.addEventListener('click', function () {
-                    if (navLinks.classList.contains('active')) {
-                        navLinks.classList.remove('active');
-                        const icon = mobileMenuBtn.querySelector('i');
-                        icon.classList.remove('fa-times');
-                        icon.classList.add('fa-bars');
-                    }
-                });
-            });
-
-            // Navbar scroll effect
-            const navbar = document.getElementById('navbar');
-            window.addEventListener('scroll', function () {
-                if (window.scrollY > 50) {
-                    navbar.classList.add('scrolled');
-                } else {
-                    navbar.classList.remove('scrolled');
-                }
-            });
-
-            // Add to cart functionality
-            function addToCart(title, artist, price, imageSrc) {
-                cartCount++;
-                cartCountElement.textContent = cartCount;
-
-                // Add item to cart array
-                cartItems.push({
-                    title: title,
-                    artist: artist,
-                    price: price,
-                    image: imageSrc
-                });
-
-                console.log('Added to cart:', { title, artist, price });
-                console.log('Cart items:', cartItems);
-
-                // Show feedback
-                const cartIcon = document.querySelector('.cart-icon i');
-                cartIcon.classList.remove('fa-shopping-cart');
-                cartIcon.classList.add('fa-check');
-
-                setTimeout(() => {
-                    cartIcon.classList.remove('fa-check');
-                    cartIcon.classList.add('fa-shopping-cart');
-                }, 1000);
+        // Shared Cart
+        function getCart() {
+            try {
+                return JSON.parse(localStorage.getItem('virtugallery_cart')) || [];
+            } catch (e) {
+                return [];
             }
+        }
 
-            // Cart icon click functionality
-            document.querySelector('.cart-icon').addEventListener('click', function (e) {
-                // Only prevent default if we have items (for demo purposes)
-                if (cartItems.length > 0) {
-                    e.preventDefault();
-                    alert(`You have ${cartCount} items in your cart. Total: ₱${calculateTotal().toLocaleString()}`);
-                }
-                // If cart is empty, the normal href to cart.html will proceed
-            });
+        function saveCart(cart) {
+            localStorage.setItem('virtugallery_cart', JSON.stringify(cart));
+            updateCartBadges();
+        }
 
-            // Calculate cart total
-            function calculateTotal() {
-                return cartItems.reduce((total, item) => {
-                    return total + parseFloat(item.price.replace('₱', '').replace(',', ''));
-                }, 0);
+        function updateCartBadges() {
+            const cart = getCart();
+            const total = cart.length;
+            const badge = document.getElementById('nav-cart-badge');
+            const mBadge = document.getElementById('mobile-cart-count');
+            if (badge) {
+                badge.innerText = total;
+                badge.classList.toggle('scale-0', total === 0);
             }
+            if (mBadge) mBadge.innerText = total;
+        }
 
-            // Add to cart buttons functionality
-            document.querySelectorAll('.add-to-cart').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const card = this.closest('.artwork-card');
-                    const title = card.querySelector('.artwork-title').textContent;
-                    const artist = card.querySelector('.artwork-artist').textContent;
-                    const price = card.querySelector('.artwork-price').textContent;
-                    const imageSrc = card.querySelector('.artwork-image').src;
+        function addToCart(item) {
+            const cart = getCart();
+            if (cart.some(i => i.id === item.id)) {
+                showToast(`"${item.title}" is already in your cart.`, 'info');
+                return;
+            }
+            cart.push(item);
+            saveCart(cart);
+            showToast(`Added "${item.title}" to cart!`);
+        }
 
-                    addToCart(title, artist, price, imageSrc);
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
 
-                    // Button feedback
-                    const icon = this.querySelector('i');
-                    icon.classList.remove('fa-cart-plus');
-                    icon.classList.add('fa-check');
+            toastMsg.innerText = message;
+            toastIcon.innerHTML = type === 'success' 
+                ? '<i class="fas fa-check-circle text-lg text-emerald-400"></i>'
+                : '<i class="fas fa-info-circle text-lg text-amber-400"></i>';
 
-                    setTimeout(() => {
-                        icon.classList.remove('fa-check');
-                        icon.classList.add('fa-cart-plus');
-                    }, 1000);
-                });
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3000);
+        }
+
+        // Filtering and Sorting
+        let currentCategory = 'all';
+
+        function setCategory(cat, btn) {
+            currentCategory = cat;
+            document.querySelectorAll('.cat-pill').forEach(b => {
+                b.classList.remove('bg-gallery-800', 'text-white');
+                b.classList.add('bg-white', 'text-gray-600', 'border', 'border-gray-200');
+            });
+            btn.classList.add('bg-gallery-800', 'text-white');
+            btn.classList.remove('bg-white', 'text-gray-600', 'border');
+            applyFilters();
+        }
+
+        function applyFilters() {
+            const search = document.getElementById('search-input').value.toLowerCase().trim();
+            const sortBy = document.getElementById('sort-select').value;
+            const items = Array.from(document.querySelectorAll('.art-item'));
+            const container = document.getElementById('products-grid');
+            let visibleCount = 0;
+
+            items.forEach(item => {
+                const title = item.dataset.title;
+                const artist = item.dataset.artist;
+                const tags = item.dataset.tags;
+                const category = item.dataset.category;
+
+                const matchCat = currentCategory === 'all' || category === currentCategory;
+                const matchSearch = !search || title.includes(search) || artist.includes(search) || tags.includes(search);
+
+                if (matchCat && matchSearch) {
+                    item.style.display = 'flex';
+                    visibleCount++;
+                } else {
+                    item.style.display = 'none';
+                }
             });
 
-            // Modal functionality
-            const artworkModal = document.getElementById('artworkModal');
-            const modalClose = document.getElementById('modalClose');
-            const modalImage = document.getElementById('modalImage');
-            const modalTitle = document.getElementById('modalTitle');
-            const modalArtist = document.getElementById('modalArtist');
-            const modalPrice = document.getElementById('modalPrice');
-            const modalDescription = document.getElementById('modalDescription');
-            const modalAddToCart = document.getElementById('modalAddToCart');
-            const modalCloseBtn = document.getElementById('modalCloseBtn');
+            // Sort visible items
+            const visibleItems = items.filter(i => i.style.display !== 'none');
+            visibleItems.sort((a, b) => {
+                if (sortBy === 'price-asc') return parseFloat(a.dataset.price) - parseFloat(b.dataset.price);
+                if (sortBy === 'price-desc') return parseFloat(b.dataset.price) - parseFloat(a.dataset.price);
+                if (sortBy === 'popular') return parseInt(b.dataset.likes) - parseInt(a.dataset.likes);
+                return parseInt(b.dataset.id) - parseInt(a.dataset.id);
+            });
 
-            // Sample descriptions for each artwork
-            const artworkDescriptions = {
-                "Sunset Dreams": "A breathtaking depiction of a sunset over rolling hills, with vibrant oranges and purples blending seamlessly. Clara Bennett's signature style shines through in this piece, capturing the fleeting beauty of twilight.",
-                "Ocean Waves": "Marcus Lee's masterful brushwork brings the ocean to life in this dynamic piece. The crashing waves seem to move before your eyes, with shades of blue and green creating a mesmerizing effect.",
-                "Mountain Peak": "Sophia Chen's majestic mountain landscape transports you to the high peaks. The play of light on snow-capped mountains and the detailed foreground flora showcase her technical prowess.",
-                "Forest Path": "David Wilson invites you down a mysterious forest path with dappled sunlight filtering through ancient trees. The rich greens and browns create a sense of depth and tranquility.",
-                "Abstract Thoughts": "Emma Johnson's bold abstract composition challenges the viewer with its vibrant colors and geometric forms. Each viewing reveals new patterns and hidden meanings.",
-                "City Lights": "Ryan Park's urban landscape captures the energy of the city at night. The glowing windows and streetlights create a mosaic of light against the dark skyline."
+            visibleItems.forEach(item => container.appendChild(item));
+
+            document.getElementById('no-results').classList.toggle('hidden', visibleCount > 0);
+        }
+
+        // Quick View Detail Modal
+        function openModalQuickView(art) {
+            document.getElementById('modal-img').src = '../' + art.image_path;
+            document.getElementById('modal-title').innerText = art.title;
+            document.getElementById('modal-artist').innerText = `by ${art.first_name} ${art.last_name}`;
+            document.getElementById('modal-location').innerText = `${art.municipality}, ${art.province}`;
+            document.getElementById('modal-category').innerText = art.category;
+            document.getElementById('modal-desc').innerText = art.description || 'Authentic original masterpiece crafted with fine materials.';
+            document.getElementById('modal-price').innerText = `₱${parseFloat(art.price).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+
+            document.getElementById('modal-cart-btn').onclick = function() {
+                addToCart({
+                    id: art.id,
+                    title: art.title,
+                    artist: `${art.first_name} ${art.last_name}`,
+                    price: parseFloat(art.price),
+                    image: art.image_path
+                });
+                closeDetailModal();
             };
 
-            // Current artwork in modal
-            let currentArtwork = null;
-
-            // View button functionality
-            document.querySelectorAll('.view-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    const card = this.closest('.artwork-card');
-                    const title = card.querySelector('.artwork-title').textContent;
-                    const artist = card.querySelector('.artwork-artist').textContent;
-                    const price = card.querySelector('.artwork-price').textContent;
-                    const imageSrc = card.querySelector('.artwork-image').src;
-
-                    // Set current artwork
-                    currentArtwork = {
-                        title: title,
-                        artist: artist,
-                        price: price,
-                        image: imageSrc
-                    };
-
-                    // Set modal content
-                    modalImage.src = imageSrc;
-                    modalTitle.textContent = title;
-                    modalArtist.textContent = artist;
-                    modalPrice.textContent = price;
-                    modalDescription.textContent = artworkDescriptions[title] || "This beautiful artwork captures the essence of nature with vibrant colors and intricate details.";
-
-                    // Show modal
-                    artworkModal.classList.add('active');
-                    document.body.style.overflow = 'hidden';
+            document.getElementById('modal-buy-btn').onclick = function() {
+                addToCart({
+                    id: art.id,
+                    title: art.title,
+                    artist: `${art.first_name} ${art.last_name}`,
+                    price: parseFloat(art.price),
+                    image: art.image_path
                 });
-            });
+                window.location.href = 'Checkouts.html';
+            };
 
-            // Modal add to cart
-            modalAddToCart.addEventListener('click', function () {
-                if (currentArtwork) {
-                    addToCart(
-                        currentArtwork.title,
-                        currentArtwork.artist,
-                        currentArtwork.price,
-                        currentArtwork.image
-                    );
-                    closeModal();
-                }
-            });
+            document.getElementById('detail-modal').classList.remove('hidden');
+        }
 
-            // Close modal
-            function closeModal() {
-                artworkModal.classList.remove('active');
-                document.body.style.overflow = 'auto';
-            }
+        function closeDetailModal() {
+            document.getElementById('detail-modal').classList.add('hidden');
+        }
 
-            modalClose.addEventListener('click', closeModal);
-            modalCloseBtn.addEventListener('click', closeModal);
+        // Mobile drawer
+        const mobileToggle = document.getElementById('mobile-toggle');
+        const mobileDrawer = document.getElementById('mobile-drawer');
+        const mobileBackdrop = document.getElementById('mobile-backdrop');
+        const mobileClose = document.getElementById('mobile-close');
 
-            // Close modal when clicking outside content
-            artworkModal.addEventListener('click', function (e) {
-                if (e.target === artworkModal) {
-                    closeModal();
-                }
-            });
+        mobileToggle?.addEventListener('click', () => mobileDrawer.classList.remove('hidden'));
+        mobileBackdrop?.addEventListener('click', () => mobileDrawer.classList.add('hidden'));
+        mobileClose?.addEventListener('click', () => mobileDrawer.classList.add('hidden'));
 
-            // Filter buttons
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-                    this.classList.add('active');
-
-                    const filter = this.textContent;
-                    console.log('Filtering by:', filter);
-
-                    // In a real app, you would filter the artwork here
-                    // For demo, we'll just log the filter
-                    if (filter !== 'All') {
-                        alert(`Filtering by: ${filter}. In a real app, this would filter the artwork grid.`);
-                    }
-                });
-            });
-
-            // Profile menu links
-            document.querySelectorAll('.profile-menu a').forEach(link => {
-                link.addEventListener('click', function () {
-                    console.log('Navigating to:', this.textContent);
-                    // In a real app, this would navigate to the appropriate page
-                });
-            });
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCartBadges();
         });
     </script>
 </body>

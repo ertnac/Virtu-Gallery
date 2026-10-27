@@ -1,932 +1,358 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtu Gallery - Checkout</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Secure Checkout — VirtuGallery</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&display=swap" rel="stylesheet">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-        body {
-            font-family: 'Montserrat', sans-serif;
-            color: #333;
-            line-height: 1.6;
-            background-color: #f9f9f9;
-            overflow-y: auto;
-            height: 100vh;
-            padding-top: 90px;
-        }
-
-        h1, h2, h3 {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        /* Navigation Bar */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: white;
-            padding: 15px 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.3s ease, padding 0.3s ease;
-            height: 90px;
-        }
-
-        .nav-left,
-        .nav-right {
-            display: flex;
-            align-items: center;
-        }
-
-        nav.scrolled {
-            background-color: rgba(32, 43, 29, 1);
-            padding: 10px 5%;
-        }
-
-            nav.scrolled .logo,
-            nav.scrolled .nav-links a,
-            nav.scrolled .profile-icon,
-            nav.scrolled .cart-icon {
-                color: white;
-            }
-
-                nav.scrolled .nav-links a:hover {
-                    color: #ecd5a6;
-                }
-
-                nav.scrolled .profile-icon:hover,
-                nav.scrolled .cart-icon:hover {
-                    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-                }
-
-            nav.scrolled .profile-menu a:hover {
-                color: #ecd5a6;
-            }
-
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            color: #202b1d;
-            font-weight: bold;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            transition: color 0.3s ease;
-        }
-
-        nav.scrolled .logo {
-            color: white;
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-            .nav-links li {
-                margin-left: 20px;
-                position: relative;
-            }
-
-            .nav-links a {
-                color: #333;
-                font-weight: 500;
-                transition: color 0.3s;
-                position: relative;
-            }
-
-                .nav-links a.active {
-                    color: #202b1d;
-                    font-weight: 600;
-                }
-
-                .nav-links a:hover {
-                    color: #202b1d;
-                }
-
-                .nav-links a::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    left: 0;
-                    width: 0;
-                    height: 2px;
-                    background-color: #000000;
-                    transition: width 0.3s;
-                }
-
-                .nav-links a:hover::after,
-                .nav-links a.active::after {
-                    width: 100%;
-                }
-
-        nav.scrolled .nav-links a::after {
-            background-color: #ecd5a6;
-        }
-
-        .profile-container {
-            position: relative;
-            margin-left: 10px;
-        }
-
-        .profile-icon,
-        .cart-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #202b1d;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-left: 10px;
-            position: relative;
-        }
-
-            .profile-icon:hover,
-            .cart-icon:hover {
-                transform: scale(1.1);
-                box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-            }
-
-        .cart-count {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: #e74c3c;
-            color: white;
-            border-radius: 50%;
-            width: 20px;
-            height: 20px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-        }
-
-        nav.scrolled .cart-count {
-            background-color: #e74c3c;
-        }
-
-        .profile-menu {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-            z-index: 1000;
-            min-width: 180px;
-        }
-
-            .profile-container:hover .profile-menu,
-            .profile-menu.active {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-            .profile-menu a {
-                display: block;
-                padding: 12px 20px;
-                color: #333;
-                font-weight: 500;
-                transition: background-color 0.3s, color 0.3s;
-            }
-
-                .profile-menu a:hover {
-                    background-color: #f9f9f9;
-                    color: #202b1d;
-                }
-
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: #333;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        nav.scrolled .mobile-menu-btn {
-            color: white;
-        }
-
-        @media (max-width: 768px) {
-            nav {
-                padding: 10px 5%;
-            }
-
-            .logo {
-                font-size: 1.5rem;
-            }
-
-            .nav-links {
-                position: fixed;
-                top: 90px;
-                left: 0;
-                width: 100%;
-                background-color: #202b1d;
-                flex-direction: column;
-                align-items: center;
-                padding: 20px 0;
-                transform: translateY(-100%);
-                opacity: 0;
-                transition: all 0.3s;
-                pointer-events: none;
-            }
-
-                .nav-links.active {
-                    transform: translateY(0);
-                    opacity: 1;
-                    pointer-events: all;
-                }
-
-                .nav-links li {
-                    margin: 15px 0;
-                }
-
-                .nav-links a {
-                    color: white;
-                }
-
-                    .nav-links a:hover {
-                        color: #ecd5a6;
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gallery: {
+                            50: '#f7f8f6',
+                            100: '#edf0eb',
+                            200: '#d7ded3',
+                            500: '#485e43',
+                            700: '#2b3b28',
+                            800: '#202b1d',
+                            900: '#172015',
+                            gold: '#c5a059'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
                     }
-
-            .mobile-menu-btn {
-                display: block;
-            }
-
-            .profile-menu {
-                top: 60px;
-                right: 5%;
-                min-width: 150px;
+                }
             }
         }
-
-        /* Main Content */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 30px 20px;
-        }
-
-        .page-title {
-            font-family: 'Playfair Display', serif;
-            color: #202b1d;
-            margin-bottom: 30px;
-            font-size: 2rem;
-        }
-
-        /* Checkout Layout */
-        .checkout-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-        }
-
-        /* Buyer Information */
-        .buyer-info {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-        }
-
-        .section-title {
-            font-family: 'Playfair Display', serif;
-            color: #202b1d;
-            margin-bottom: 20px;
-            font-size: 1.3rem;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #eee;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-            .form-group label {
-                display: block;
-                margin-bottom: 8px;
-                font-weight: 500;
-            }
-
-            .form-group input,
-            .form-group select,
-            .form-group textarea {
-                width: 100%;
-                padding: 12px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-                font-family: 'Montserrat', sans-serif;
-            }
-
-            .form-group textarea {
-                height: 100px;
-                resize: vertical;
-            }
-
-        .name-fields {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        /* Order Summary */
-        .order-summary {
-            background: white;
-            border-radius: 10px;
-            padding: 30px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
-            height: fit-content;
-            position: sticky;
-            top: 90px;
-        }
-
-        .summary-item {
-            display: flex;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid #f5f5f5;
-        }
-
-        .summary-image {
-            width: 80px;
-            height: 80px;
-            border-radius: 5px;
-            object-fit: cover;
-            border: 1px solid #eee;
-            margin-right: 15px;
-        }
-
-        .summary-details {
-            flex-grow: 1;
-        }
-
-            .summary-details h4 {
-                font-family: 'Playfair Display', serif;
-                margin-bottom: 5px;
-            }
-
-            .summary-details p {
-                color: #777;
-                font-size: 0.9rem;
-            }
-
-        .summary-price {
-            font-weight: 500;
-            color: #202b1d;
-            min-width: 80px;
-            text-align: right;
-        }
-
-        .summary-row {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #f5f5f5;
-        }
-
-        .total-row {
-            font-weight: 600;
-            font-size: 1.1rem;
-            margin-top: 15px;
-            padding-top: 15px;
-            border-top: 1px solid #ddd;
-            color: #202b1d;
-        }
-
-        .button-group {
-            display: flex;
-            gap: 15px;
-            margin-top: 20px;
-        }
-
-        .place-order-btn {
-            flex: 1;
-            padding: 12px;
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s ease;
-            font-size: 1rem;
-        }
-
-            .place-order-btn:hover {
-                background-color: #1a2318;
-                transform: translateY(-1px);
-            }
-
-        .cancel-btn {
-            flex: 1;
-            padding: 12px;
-            background-color: #f5f5f5;
-            color: #333;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.3s, transform 0.2s ease;
-            font-size: 1rem;
-        }
-
-            .cancel-btn:hover {
-                background-color: #eee;
-                transform: translateY(-1px);
-            }
-
-        /* Payment Methods */
-        .payment-methods {
-            margin-top: 30px;
-        }
-
-        .payment-option {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: border-color 0.3s;
-            background-color: #f9f9f9;
-        }
-
-            .payment-option.selected {
-                border-color: #202b1d;
-                background-color: #e8f0e3;
-            }
-
-            .payment-option input {
-                margin-right: 15px;
-            }
-
-        .payment-icon {
-            margin-right: 15px;
-            font-size: 1.5rem;
-            color: #202b1d;
-        }
-
-        /* Responsive */
-        @media (max-width: 992px) {
-            .checkout-container {
-                grid-template-columns: 1fr;
-            }
-
-            .order-summary {
-                position: static;
-            }
-        }
-
-        @media (max-width: 576px) {
-            .name-fields {
-                grid-template-columns: 1fr;
-            }
-
-            .button-group {
-                flex-direction: column;
-            }
+    </script>
+    <style>
+        .backdrop-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
     </style>
 </head>
-<body>
-    <nav id="navbar">
-       <div class="nav-left">
-                <ul class="nav-links">
-                    <li><a href="../index.php">Home</a></li>
-                    <li><a href="../index.php#features">Features</a></li>
-                    <li><a href="../index.php#gallery">Gallery</a></li>
-                    <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="../index.php#about">About Us</a></li>
-                </ul>
-            </div>
-        <div class="logo">VirtuGallery</div>
-        <div class="nav-right">
-            <a href="cart.html" class="cart-icon">
-                <i class="fas fa-shopping-cart"></i>
-                <span class="cart-count">3</span>
-            </a>
-            <div class="profile-container">
-                <div class="profile-icon">
-                    <i class="fas fa-user"></i>
-                </div>
-                <div class="profile-menu">
-                    <a href="UserProfilePage.php">Profile</a>
-                    <a href="settings.php">Settings</a>
-                    <a href="UserProfilePage.php">My Collection</a>
-                    <a href="#">Logout</a>
+
+<body class="bg-gallery-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-40 backdrop-glass border-b border-gray-200/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="../index.php" class="flex items-center space-x-3">
+                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md">V</span>
+                    <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                </a>
+                <div class="flex items-center space-x-2 text-xs font-semibold text-emerald-700 bg-emerald-50 px-3.5 py-1.5 rounded-full border border-emerald-200/60">
+                    <i class="fas fa-lock"></i>
+                    <span>256-bit SSL Encrypted Checkout</span>
                 </div>
             </div>
-            <button class="mobile-menu-btn">
-                <i class="fas fa-bars"></i>
-            </button>
         </div>
     </nav>
 
-    <div class="container">
-        <h1 class="page-title">Checkout</h1>
+    <!-- Main Checkout Section -->
+    <main class="pt-28 pb-20 flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div class="mb-8">
+            <a href="cart.html" class="inline-flex items-center space-x-2 text-xs font-semibold text-gray-500 hover:text-gallery-800 mb-2 transition-colors">
+                <i class="fas fa-arrow-left"></i>
+                <span>Back to Cart</span>
+            </a>
+            <h1 class="font-serif text-3xl sm:text-4xl font-bold text-gallery-900">Finalize Your Acquisition</h1>
+        </div>
 
-        <div class="checkout-container">
-            <!-- Buyer Information Section -->
-            <div class="buyer-info">
-                <h2 class="section-title">Shipping Information</h2>
-
-                <div class="form-group name-fields">
-                    <div>
-                        <label for="first-name">First Name</label>
-                        <input type="text" id="first-name" required>
+        <form id="checkout-form" onsubmit="submitOrder(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+            
+            <!-- Left Form Details (7 cols) -->
+            <div class="lg:col-span-7 space-y-6">
+                
+                <!-- Shipping Address Card -->
+                <div class="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm space-y-5">
+                    <div class="flex items-center space-x-3 pb-3 border-b border-gray-100">
+                        <span class="w-8 h-8 rounded-full bg-gallery-100 text-gallery-800 flex items-center justify-center text-sm font-bold">1</span>
+                        <h3 class="font-serif text-xl font-bold text-gallery-900">Recipient & Delivery Address</h3>
                     </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Full Name *</label>
+                            <input type="text" id="cust-name" required placeholder="Cedrick Albuero" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Phone Number *</label>
+                            <input type="tel" id="cust-phone" required placeholder="+63 912 345 6789" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                        </div>
+                    </div>
+
                     <div>
-                        <label for="last-name">Last Name</label>
-                        <input type="text" id="last-name" required>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Email for Receipt & Tracking *</label>
+                        <input type="email" id="cust-email" required placeholder="collector@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Street Address / Unit / Building *</label>
+                        <input type="text" id="cust-address" required placeholder="123 Rizal Avenue, Brgy. San Roque" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Municipality / City *</label>
+                            <input type="text" id="cust-city" required placeholder="San Pablo / Alaminos" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Province *</label>
+                            <input type="text" id="cust-province" required placeholder="Laguna" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none">
+                        </div>
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="email">Email Address</label>
-                    <input type="email" id="email" required>
+                <!-- Payment Method Card -->
+                <div class="bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm space-y-5">
+                    <div class="flex items-center space-x-3 pb-3 border-b border-gray-100">
+                        <span class="w-8 h-8 rounded-full bg-gallery-100 text-gallery-800 flex items-center justify-center text-sm font-bold">2</span>
+                        <h3 class="font-serif text-xl font-bold text-gallery-900">Payment Selection</h3>
+                    </div>
+
+                    <div class="space-y-3">
+                        <label class="flex items-center justify-between p-4 rounded-2xl border-2 border-gallery-800 bg-gallery-50/50 cursor-pointer payment-option">
+                            <div class="flex items-center space-x-3">
+                                <input type="radio" name="payment_method" value="GCash" checked class="text-gallery-800 focus:ring-gallery-800">
+                                <div>
+                                    <span class="font-bold text-sm block text-gallery-900">GCash / Maya (e-Wallet)</span>
+                                    <span class="text-xs text-gray-500">Fast, instant QR payment verification</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-mobile-alt text-xl text-gallery-800"></i>
+                        </label>
+
+                        <label class="flex items-center justify-between p-4 rounded-2xl border border-gray-200 hover:border-gray-300 cursor-pointer payment-option">
+                            <div class="flex items-center space-x-3">
+                                <input type="radio" name="payment_method" value="Credit Card" class="text-gallery-800 focus:ring-gallery-800">
+                                <div>
+                                    <span class="font-bold text-sm block text-gallery-900">Credit / Debit Card</span>
+                                    <span class="text-xs text-gray-500">Visa, Mastercard, JCB</span>
+                                </div>
+                            </div>
+                            <i class="far fa-credit-card text-xl text-gray-500"></i>
+                        </label>
+
+                        <label class="flex items-center justify-between p-4 rounded-2xl border border-gray-200 hover:border-gray-300 cursor-pointer payment-option">
+                            <div class="flex items-center space-x-3">
+                                <input type="radio" name="payment_method" value="Bank Transfer" class="text-gallery-800 focus:ring-gallery-800">
+                                <div>
+                                    <span class="font-bold text-sm block text-gallery-900">Online Bank Deposit</span>
+                                    <span class="text-xs text-gray-500">BDO, BPI, UnionBank</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-university text-xl text-gray-500"></i>
+                        </label>
+
+                        <label class="flex items-center justify-between p-4 rounded-2xl border border-gray-200 hover:border-gray-300 cursor-pointer payment-option">
+                            <div class="flex items-center space-x-3">
+                                <input type="radio" name="payment_method" value="Cash on Delivery" class="text-gallery-800 focus:ring-gallery-800">
+                                <div>
+                                    <span class="font-bold text-sm block text-gallery-900">Cash On Delivery</span>
+                                    <span class="text-xs text-gray-500">Available across Laguna & Metro Manila</span>
+                                </div>
+                            </div>
+                            <i class="fas fa-money-bill-wave text-xl text-gray-500"></i>
+                        </label>
+                    </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="phone">Phone Number</label>
-                    <input type="tel" id="phone" required>
-                </div>
-
-                <div class="form-group">
-                    <label for="region">Region</label>
-                    <select id="region" required>
-                        <option value="">Select Region</option>
-                        <option value="luzon">Luzon</option>
-                        <option value="visayas">Visayas</option>
-                        <option value="mindanao">Mindanao</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="province">Province</label>
-                    <select id="province" required disabled>
-                        <option value="">Select Province</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="city">City/Municipality</label>
-                    <select id="city" required disabled>
-                        <option value="">Select City/Municipality</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="barangay">Barangay</label>
-                    <select id="barangay" required disabled>
-                        <option value="">Select Barangay</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="street-address">Street Address (House No., Building, Street)</label>
-                    <textarea id="street-address" required></textarea>
-                </div>
-
-                <h2 class="section-title" style="margin-top: 40px;">Payment Method</h2>
-
-                <div class="payment-methods">
-                    <label class="payment-option selected">
-                        <input type="radio" name="payment" value="cash-on-delivery" checked>
-                        <i class="fas fa-money-bill-wave payment-icon"></i>
-                        <span>Cash on Delivery</span>
-                    </label>
-                </div>
             </div>
 
-            <!-- Order Summary Section -->
-            <div class="order-summary">
-                <h2 class="section-title">Order Summary</h2>
+            <!-- Right Order Summary Card (5 cols) -->
+            <div class="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-8 border border-gray-100 shadow-sm sticky top-28 space-y-6">
+                <div class="flex items-center justify-between pb-3 border-b border-gray-100">
+                    <h3 class="font-serif text-xl font-bold text-gallery-900">Artworks in Order</h3>
+                    <span id="items-count-badge" class="text-xs font-semibold bg-gallery-100 text-gallery-800 px-2.5 py-0.5 rounded-full">0 pieces</span>
+                </div>
 
-                <!-- Order Item 1 -->
-                <div class="summary-item">
-                    <img src="https://source.unsplash.com/random/300x300?art1" alt="Starry Night" class="summary-image">
-                    <div class="summary-details">
-                        <h4>Starry Night</h4>
-                        <p>by Vincent Van Gogh</p>
-                        <p>Quantity: 1</p>
+                <!-- Artwork Preview Mini List -->
+                <div id="checkout-items-list" class="space-y-4 max-h-72 overflow-y-auto pr-1">
+                    <!-- Populated dynamically -->
+                </div>
+
+                <!-- Price Calculations -->
+                <div class="pt-4 border-t border-gray-100 space-y-3 text-sm text-gray-600">
+                    <div class="flex justify-between">
+                        <span>Artworks Subtotal</span>
+                        <span id="co-subtotal" class="font-semibold text-gallery-900">₱0.00</span>
                     </div>
-                    <div class="summary-price">₱1,200</div>
-                </div>
-
-                <!-- Order Item 2 -->
-                <div class="summary-item">
-                    <img src="https://source.unsplash.com/random/300x300?art2" alt="The Persistence of Memory" class="summary-image">
-                    <div class="summary-details">
-                        <h4>The Persistence of Memory</h4>
-                        <p>by Salvador Dali</p>
-                        <p>Quantity: 1</p>
+                    <div class="flex justify-between">
+                        <span>Courier & Transit Insurance</span>
+                        <span id="co-shipping" class="font-semibold text-gallery-900">₱250.00</span>
                     </div>
-                    <div class="summary-price">₱950</div>
-                </div>
-
-                <!-- Order Item 3 -->
-                <div class="summary-item">
-                    <img src="https://source.unsplash.com/random/300x300?art3" alt="Girl with a Pearl Earring" class="summary-image">
-                    <div class="summary-details">
-                        <h4>Girl with a Pearl Earring</h4>
-                        <p>by Johannes Vermeer</p>
-                        <p>Quantity: 1</p>
+                    <div class="flex justify-between text-xs text-emerald-600">
+                        <span>Provenance Documentation</span>
+                        <span class="font-bold">INCLUDED</span>
                     </div>
-                    <div class="summary-price">₱1,800</div>
                 </div>
 
-                <div class="summary-row">
-                    <span>Subtotal</span>
-                    <span>₱3,950</span>
+                <div class="pt-4 border-t border-gray-100 flex justify-between items-baseline">
+                    <span class="font-serif text-lg font-bold text-gallery-900">Total Investment</span>
+                    <span id="co-total" class="font-serif text-2xl font-bold text-gallery-900">₱0.00</span>
                 </div>
 
-                <div class="summary-row">
-                    <span>Shipping Fee</span>
-                    <span>₱50</span>
-                </div>
+                <button type="submit" id="submit-order-btn" class="w-full py-4 bg-gallery-800 hover:bg-gallery-900 text-white rounded-2xl font-bold text-sm tracking-wide shadow-xl hover:shadow-2xl transition-all flex items-center justify-center space-x-2">
+                    <span>Place Order & Confirm Acquisition</span>
+                    <i class="fas fa-check-circle text-gallery-gold"></i>
+                </button>
 
-                <div class="summary-row">
-                    <span>Tax</span>
-                    <span>₱395</span>
-                </div>
+                <p class="text-[11px] text-gray-400 text-center leading-relaxed">
+                    By clicking "Place Order", you agree to VirtuGallery's Artwork Preservation & Delivery Protocol.
+                </p>
+            </div>
 
-                <div class="total-row">
-                    <span>Total</span>
-                    <span>₱4,395</span>
-                </div>
+        </form>
+    </main>
 
-                <div class="button-group">
-                    <button class="cancel-btn" id="cancel-btn">Cancel Order</button>
-                    <button class="place-order-btn" id="place-order-btn">Place Order</button>
+    <!-- Confirmation Modal Screen -->
+    <div id="confirmation-modal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm"></div>
+        <div class="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md sm:w-full bg-white rounded-3xl p-8 shadow-2xl text-center space-y-6">
+            <div class="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto text-3xl shadow-inner">
+                <i class="fas fa-check"></i>
+            </div>
+            <div>
+                <span class="text-xs uppercase font-bold tracking-widest text-gallery-gold">Order Confirmed</span>
+                <h3 class="font-serif text-2xl font-bold text-gallery-900 mt-1">Acquisition Successful!</h3>
+                <p class="text-xs text-gray-500 mt-2 font-light">
+                    Your collection order has been transmitted to the artist's studio for protective packaging and dispatch.
+                </p>
+            </div>
+            <div class="p-4 rounded-2xl bg-gallery-50 border border-gray-100 text-left text-xs space-y-2">
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Order Reference:</span>
+                    <span id="conf-order-id" class="font-bold text-gallery-900"></span>
                 </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Total Charged:</span>
+                    <span id="conf-total" class="font-bold text-gallery-900"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-gray-500">Payment Channel:</span>
+                    <span id="conf-payment" class="font-medium text-gallery-900"></span>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="Marketplace.php" class="flex-1 py-3 rounded-xl border border-gray-200 text-xs font-semibold text-gray-700 hover:bg-gray-50">Marketplace</a>
+                <a href="home.php" class="flex-1 py-3 rounded-xl bg-gallery-800 text-white text-xs font-semibold hover:bg-gallery-900 shadow-md">Community Feed</a>
             </div>
         </div>
     </div>
 
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-6 text-center text-xs text-gray-500">
+        <p>© <?= date('Y') ?> VirtuGallery — Safe & Curated Fine Art Transactions</p>
+    </footer>
+
     <script>
-        // Navigation Script
-        document.addEventListener('DOMContentLoaded', function () {
-            const profileIcon = document.querySelector('.profile-icon');
-            const profileMenu = document.querySelector('.profile-menu');
-            const profileContainer = document.querySelector('.profile-container');
+        let checkoutItems = [];
 
-            profileIcon.addEventListener('click', function (e) {
-                if (window.innerWidth <= 768) {
-                    e.preventDefault();
-                    profileMenu.classList.toggle('active');
-                }
-            });
+        function loadCheckoutItems() {
+            try {
+                checkoutItems = JSON.parse(localStorage.getItem('virtugallery_checkout_items')) || 
+                                JSON.parse(localStorage.getItem('virtugallery_cart')) || [];
+            } catch (e) {
+                checkoutItems = [];
+            }
 
-            document.addEventListener('click', function (e) {
-                if (!profileContainer.contains(e.target) && window.innerWidth <= 768) {
-                    profileMenu.classList.remove('active');
-                }
-            });
+            if (checkoutItems.length === 0) {
+                alert('Your cart is empty. Redirecting to Marketplace...');
+                window.location.href = 'Marketplace.php';
+                return;
+            }
 
-            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            mobileMenuBtn.addEventListener('click', function () {
-                navLinks.classList.toggle('active');
-                const icon = mobileMenuBtn.querySelector('i');
-                if (navLinks.classList.contains('active')) {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-times');
-                } else {
-                    icon.classList.remove('fa-times');
-                    icon.classList.add('fa-bars');
-                }
-            });
+            const listEl = document.getElementById('checkout-items-list');
+            document.getElementById('items-count-badge').innerText = `${checkoutItems.length} piece${checkoutItems.length > 1 ? 's' : ''}`;
 
-            document.querySelectorAll('.nav-links a').forEach(link => {
-                link.addEventListener('click', function () {
-                    if (navLinks.classList.contains('active')) {
-                        navLinks.classList.remove('active');
-                        const icon = mobileMenuBtn.querySelector('i');
-                        icon.classList.remove('fa-times');
-                        icon.classList.add('fa-bars');
-                    }
-                });
-            });
+            listEl.innerHTML = checkoutItems.map(item => `
+                <div class="flex items-center justify-between gap-3 p-2 rounded-xl hover:bg-gray-50 transition-colors">
+                    <div class="flex items-center space-x-3 min-w-0">
+                        <img src="${item.image.startsWith('../') || item.image.startsWith('http') ? item.image : '../' + item.image}" 
+                             alt="${item.title}" 
+                             class="w-12 h-12 rounded-lg object-cover bg-gray-100 border border-gray-200 flex-shrink-0">
+                        <div class="min-w-0">
+                            <h4 class="font-serif text-sm font-bold text-gallery-900 truncate">${item.title}</h4>
+                            <p class="text-xs text-gray-400">by ${item.artist}</p>
+                        </div>
+                    </div>
+                    <span class="font-bold text-sm text-gallery-900 flex-shrink-0">₱${parseFloat(item.price).toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+                </div>
+            `).join('');
 
-            const navbar = document.getElementById('navbar');
-            window.addEventListener('scroll', function () {
-                if (window.scrollY > 50) {
-                    navbar.classList.add('scrolled');
-                } else {
-                    navbar.classList.remove('scrolled');
-                }
-            });
+            const subtotal = checkoutItems.reduce((acc, curr) => acc + parseFloat(curr.price), 0);
+            const shipping = subtotal > 20000 ? 0 : 250;
+            const total = subtotal + shipping;
 
-            // Philippine Address Data (simplified for demo)
-            const philippineAddresses = {
-                luzon: {
-                    "Batangas": {
-                        "Batangas City": ["lemery", "talisay"],
-                        "Tanauan City": ["Barangay Talaga", "Barangay Ambulong", "Banadero"]
-                    },
-                    "Laguna": {
-                        "Calamba": ["Barangay Uno", "Barangay Dos", "Barangay Tres"],
-                        "San Pablo": ["San Jose", "Sta Elena", "Sto Cristo"]
-                    }
-                },
-                visayas: {
-                    "Cebu": {
-                        "Cebu City": ["Barangay North", "Barangay South", "Barangay East"],
-                        "Lapu-Lapu City": ["Barangay Mactan", "Barangay Airport", "Barangay Seaside"]
-                    },
-                    "Bohol": {
-                        "Tagbilaran": ["Barangay 1", "Barangay 2", "Barangay 3"],
-                        "Panglao": ["Barangay Beach", "Barangay Resort", "Barangay Island"]
-                    }
-                },
-                mindanao: {
-                    "Davao del Sur": {
-                        "Davao City": ["Barangay Central", "Barangay Uptown", "Barangay Downtown"],
-                        "Digos": ["Barangay Rural", "Barangay Urban", "Barangay Suburban"]
-                    },
-                    "Bukidnon": {
-                        "Malaybalay": ["Barangay Highland", "Barangay Valley", "Barangay Mountain"],
-                        "Valencia": ["Barangay Citrus", "Barangay Pineapple", "Barangay Banana"]
-                    }
+            document.getElementById('co-subtotal').innerText = `₱${subtotal.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('co-shipping').innerText = shipping === 0 ? 'FREE' : `₱${shipping.toFixed(2)}`;
+            document.getElementById('co-total').innerText = `₱${total.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+        }
+
+        function submitOrder(e) {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-order-btn');
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Confirming with Artists...';
+
+            const paymentRadio = document.querySelector('input[name="payment_method"]:checked');
+            const payload = {
+                items: checkoutItems,
+                payment_method: paymentRadio ? paymentRadio.value : 'GCash',
+                shipping: {
+                    name: document.getElementById('cust-name').value.trim(),
+                    phone: document.getElementById('cust-phone').value.trim(),
+                    email: document.getElementById('cust-email').value.trim(),
+                    address: document.getElementById('cust-address').value.trim(),
+                    city: document.getElementById('cust-city').value.trim(),
+                    province: document.getElementById('cust-province').value.trim()
                 }
             };
 
-            // DOM Elements
-            const regionSelect = document.getElementById('region');
-            const provinceSelect = document.getElementById('province');
-            const citySelect = document.getElementById('city');
-            const barangaySelect = document.getElementById('barangay');
+            fetch('../api/create_order.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    // Clear cart
+                    localStorage.removeItem('virtugallery_cart');
+                    localStorage.removeItem('virtugallery_checkout_items');
 
-            // Region Change Handler
-            regionSelect.addEventListener('change', function () {
-                const region = this.value;
-
-                // Reset and enable province select
-                provinceSelect.innerHTML = '<option value="">Select Province</option>';
-                provinceSelect.disabled = !region;
-
-                if (region) {
-                    // Add provinces for selected region
-                    const provinces = Object.keys(philippineAddresses[region]);
-                    provinces.forEach(province => {
-                        const option = document.createElement('option');
-                        option.value = province;
-                        option.textContent = province;
-                        provinceSelect.appendChild(option);
-                    });
-
-                    provinceSelect.disabled = false;
-                }
-
-                // Reset other selects
-                citySelect.innerHTML = '<option value="">Select City/Municipality</option>';
-                citySelect.disabled = true;
-                barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
-                barangaySelect.disabled = true;
-            });
-
-            // Province Change Handler
-            provinceSelect.addEventListener('change', function () {
-                const region = regionSelect.value;
-                const province = this.value;
-
-                // Reset and enable city select
-                citySelect.innerHTML = '<option value="">Select City/Municipality</option>';
-                citySelect.disabled = !province;
-
-                if (region && province) {
-                    // Add cities for selected province
-                    const cities = Object.keys(philippineAddresses[region][province]);
-                    cities.forEach(city => {
-                        const option = document.createElement('option');
-                        option.value = city;
-                        option.textContent = city;
-                        citySelect.appendChild(option);
-                    });
-
-                    citySelect.disabled = false;
-                }
-
-                // Reset barangay select
-                barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
-                barangaySelect.disabled = true;
-            });
-
-            // City Change Handler
-            citySelect.addEventListener('change', function () {
-                const region = regionSelect.value;
-                const province = provinceSelect.value;
-                const city = this.value;
-
-                // Reset and enable barangay select
-                barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
-                barangaySelect.disabled = !city;
-
-                if (region && province && city) {
-                    // Add barangays for selected city
-                    const barangays = philippineAddresses[region][province][city];
-                    barangays.forEach(barangay => {
-                        const option = document.createElement('option');
-                        option.value = barangay;
-                        option.textContent = barangay;
-                        barangaySelect.appendChild(option);
-                    });
-
-                    barangaySelect.disabled = false;
-                }
-            });
-
-            // Place Order Button
-            const placeOrderBtn = document.getElementById('place-order-btn');
-            const cancelBtn = document.getElementById('cancel-btn');
-
-            placeOrderBtn.addEventListener('click', function () {
-                // Validate form
-                const formInputs = document.querySelectorAll('input[required], select[required], textarea[required]');
-                let isValid = true;
-
-                formInputs.forEach(input => {
-                    if (!input.value.trim()) {
-                        input.style.borderColor = 'red';
-                        isValid = false;
-                    } else {
-                        input.style.borderColor = '#ddd';
-                    }
-                });
-
-                if (isValid) {
-                    // In a real application, you would process the order here
-                    const orderData = {
-                        firstName: document.getElementById('first-name').value,
-                        lastName: document.getElementById('last-name').value,
-                        email: document.getElementById('email').value,
-                        phone: document.getElementById('phone').value,
-                        address: {
-                            region: regionSelect.options[regionSelect.selectedIndex].text,
-                            province: provinceSelect.options[provinceSelect.selectedIndex].text,
-                            city: citySelect.options[citySelect.selectedIndex].text,
-                            barangay: barangaySelect.options[barangaySelect.selectedIndex].text,
-                            street: document.getElementById('street-address').value
-                        },
-                        paymentMethod: "Cash on Delivery",
-                        items: [
-                            { name: "Starry Night", price: 1200, quantity: 1 },
-                            { name: "The Persistence of Memory", price: 950, quantity: 1 },
-                            { name: "Girl with a Pearl Earring", price: 1800, quantity: 1 }
-                        ],
-                        total: 4395
-                    };
-
-                    console.log('Order Data:', orderData);
-                    alert('Your order has been placed successfully! You will pay cash upon delivery.');
-                    window.location.href = '../Pages/Marketplace.php';
+                    // Show confirmation modal
+                    document.getElementById('conf-order-id').innerText = data.order_number;
+                    document.getElementById('conf-total').innerText = document.getElementById('co-total').innerText;
+                    document.getElementById('conf-payment').innerText = payload.payment_method;
+                    document.getElementById('confirmation-modal').classList.remove('hidden');
                 } else {
-                    alert('Please fill in all required fields.');
+                    alert('Order failed: ' + (data.error || 'Server error'));
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = 'Place Order & Confirm Acquisition';
                 }
+            })
+            .catch(() => {
+                alert('Connection error. Please try again.');
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Place Order & Confirm Acquisition';
             });
+        }
 
-            // Cancel Button
-            cancelBtn.addEventListener('click', function () {
-                if (confirm('Are you sure you want to cancel this order?')) {
-                    window.location.href = '../Pages/cart.html';
-                }
-            });
-        });
+        document.addEventListener('DOMContentLoaded', loadCheckoutItems);
     </script>
 </body>
+
 </html>

@@ -1,2374 +1,905 @@
-﻿<!DOCTYPE html>
-<html lang="en">
+<?php
+session_start();
+require_once __DIR__ . '/db_connect.php';
+
+$isLoggedIn = isset($_SESSION['user_id']);
+$userEmail = $_SESSION['email'] ?? '';
+$currentUserId = $_SESSION['user_id'] ?? null;
+
+// Fetch live statistics
+try {
+    $statsArtworks = $pdo->query("SELECT COUNT(*) FROM posts")->fetchColumn();
+    $statsArtists = $pdo->query("SELECT COUNT(DISTINCT user_id) FROM posts")->fetchColumn();
+    $statsUsers = $pdo->query("SELECT COUNT(*) FROM users")->fetchColumn();
+
+    // Fetch trending artworks dynamically
+    $artStmt = $pdo->query("
+        SELECT 
+            p.id,
+            p.title,
+            p.description,
+            p.category,
+            p.post_type,
+            p.price,
+            p.image_path,
+            p.created_at,
+            u.id AS artist_id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count,
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY likes_count DESC, p.created_at DESC
+        LIMIT 8
+    ");
+    $trendingArtworks = $artStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // Fetch featured artists
+    $artistStmt = $pdo->query("
+        SELECT 
+            u.id,
+            u.first_name,
+            u.last_name,
+            u.username,
+            u.profile_picture,
+            u.municipality,
+            u.province,
+            COALESCE(a.stage_name, u.first_name || ' ' || u.last_name) AS stage_name,
+            COALESCE(a.art_style, 'Contemporary Art') AS art_style,
+            (SELECT COUNT(*) FROM posts WHERE user_id = u.id) AS artwork_count,
+            (SELECT COUNT(*) FROM follows WHERE followed_id = u.id) AS followers_count
+        FROM users u
+        LEFT JOIN artists a ON u.id = a.user_id
+        WHERE (SELECT COUNT(*) FROM posts WHERE user_id = u.id) > 0
+        ORDER BY followers_count DESC, artwork_count DESC
+        LIMIT 4
+    ");
+    $featuredArtists = $artistStmt->fetchAll(PDO::FETCH_ASSOC);
+
+} catch (PDOException $e) {
+    $statsArtworks = 10;
+    $statsArtists = 3;
+    $statsUsers = 4;
+    $trendingArtworks = [];
+    $featuredArtists = [];
+}
+?>
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
 
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ArtVibe | Discover Art That Speaks to You</title>
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&family=Roboto:wght@400;500;700&display=swap"
-    rel="stylesheet" />
-  <style>
-    /* Existing CSS remains unchanged */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-
-    /* Default state */
-    .logout-button {
-      color: darkgreen;
-      background: none;
-      border: none;
-      cursor: pointer;
-      font-family: inherit;
-      font-size: inherit;
-      padding: 8px 15px;
-      margin-left: 10px;
-      font-weight: 500;
-    }
-
-    /* Scrolled state */
-    header.scrolled .logout-button {
-      color: white !important;
-      background: transparent;
-      /* Optional: Remove background */
-    }
-
-
-
-    /* Default styles */
-    .user-email,
-    .logout-button {
-      color: initial;
-      /* or your default color */
-    }
-
-    /* Scrolled styles */
-    .scrolled .user-email,
-    .scrolled .logout-button {
-      color: white !important;
-    }
-
-    body {
-      font-family: "Montserrat", sans-serif;
-      color: #333;
-      line-height: 1.6;
-      overflow-x: hidden;
-      background-color: #f9f9f9;
-      padding-top: 70px;
-    }
-
-    h1,
-    h2,
-    h3 {
-      font-family: "Playfair Display", serif;
-      font-weight: 700;
-    }
-
-    a {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    nav {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      background-color: white;
-      padding: 15px 5%;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      z-index: 1000;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-      border-bottom: 1px solid #eee;
-      transition: background-color 0.3s ease, padding 0.3s ease;
-      height: 90px;
-    }
-
-    .nav-left,
-    .nav-right {
-      display: flex;
-      align-items: center;
-    }
-
-    nav.scrolled {
-      background-color: rgba(32, 43, 29, 1);
-      padding: 10px 5%;
-    }
-
-    nav.scrolled .logo,
-    nav.scrolled .nav-links a,
-    nav.scrolled .login-btn {
-      color: white;
-    }
-
-    nav.scrolled .nav-links a:hover {
-      color: #ecd5a6;
-    }
-
-    nav.scrolled .search-container i {
-      color: #aaa;
-    }
-
-    nav.scrolled .search-container input {
-      border-color: #444;
-      background-color: rgba(255, 255, 255, 0.1);
-      color: white;
-    }
-
-    nav.scrolled .search-container input::placeholder {
-      color: #aaa;
-    }
-
-    .logo {
-      font-family: "Playfair Display", serif;
-      font-size: 1.8rem;
-      color: #202b1d;
-      font-weight: bold;
-      position: absolute;
-      left: 50%;
-      transform: translateX(-50%);
-      transition: color 0.3s ease;
-    }
-
-    .nav-links {
-      display: flex;
-      list-style: none;
-    }
-
-    .nav-links li {
-      margin-left: 20px;
-      position: relative;
-    }
-
-    .nav-links a {
-      color: #333;
-      font-weight: 500;
-      transition: color 0.3s;
-      position: relative;
-    }
-
-    .nav-links a:hover {
-      color: #202b1d;
-    }
-
-    .nav-links a::after {
-      content: "";
-      position: absolute;
-      bottom: -5px;
-      left: 0;
-      width: 0;
-      height: 2px;
-      background-color: #000000;
-      transition: width 0.3s;
-    }
-
-    .nav-links a:hover::after {
-      width: 100%;
-    }
-
-    nav.scrolled .nav-links a::after {
-      background-color: #ecd5a6;
-    }
-
-    .search-container {
-      position: relative;
-      margin-right: 20px;
-    }
-
-    .search-container i {
-      position: absolute;
-      left: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #777;
-      transition: color 0.3s;
-    }
-
-    .search-container input {
-      padding: 8px 15px 8px 35px;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      width: 200px;
-      transition: all 0.3s;
-    }
-
-    .search-container input:focus {
-      outline: none;
-      border-color: #202b1d;
-      width: 250px;
-    }
-
-    .auth-buttons {
-      display: flex;
-      align-items: center;
-    }
-
-    .login-btn,
-    .signup-btn {
-      padding: 8px 15px;
-      margin-left: 10px;
-      font-weight: 500;
-      transition: all 0.3s;
-      cursor: pointer;
-    }
-
-    .login-btn {
-      color: #333;
-    }
-
-    .signup-btn {
-      background-color: #202b1d;
-      color: white;
-      border-radius: 4px;
-    }
-
-    .signup-btn:hover {
-      background-color: #1a2318;
-    }
-
-    .mobile-menu-btn {
-      display: none;
-      background: none;
-      border: none;
-      color: #333;
-      font-size: 1.5rem;
-      cursor: pointer;
-      transition: color 0.3s;
-    }
-
-    nav.scrolled .mobile-menu-btn {
-      color: white;
-    }
-
-    .modal {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background-color: rgba(0, 0, 0, 0.6);
-      z-index: 2000;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .modal-content {
-      width: 800px;
-      height: 600px;
-      background-color: #ffffff;
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
-      position: relative;
-      overflow: hidden;
-      border-radius: 12px;
-      padding: 0;
-    }
-
-    .image-panel {
-      width: 50%;
-      height: 100%;
-      background: url("https://images.unsplash.com/photo-1531913764164-f85c52e6e654?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80") no-repeat center center;
-      background-size: cover;
-      position: absolute;
-      top: 0;
-      left: 0;
-      transition: transform 0.7s ease-in-out;
-      z-index: 2;
-    }
-
-    .image-panel.signup {
-      transform: translateX(100%);
-    }
-
-    .form-container {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      z-index: 1;
-    }
-
-    .login-form,
-    .signup-form {
-      width: 50%;
-      height: 100%;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;
-      background-color: #ffffff;
-      position: absolute;
-      top: 0;
-      margin: 0;
-      transition: opacity 0.7s ease-in-out;
-      box-sizing: border-box;
-      overflow-y: auto;
-      font-family: "Roboto", sans-serif;
-    }
-
-    .login-form {
-      right: 0;
-      opacity: 1;
-    }
-
-    .signup-form {
-      left: 0;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .login-form.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .signup-form.hidden {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .login-form.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .signup-form.visible {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .modal-close {
-      position: absolute;
-      top: 10px;
-      right: 10px;
-      background: none;
-      border: none;
-      font-size: 1.5rem;
-      color: #333;
-      cursor: pointer;
-      z-index: 3;
-    }
-
-    h2 {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: #333;
-      margin-bottom: 15px;
-      font-family: "Playfair Display", serif;
-    }
-
-    .form-group {
-      width: 90%;
-      margin: 6px 0;
-    }
-
-    .form-group.row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .form-group.row input {
-      flex: 1;
-    }
-
-    input {
-      width: 100%;
-      padding: 10px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      font-size: 1rem;
-      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.05);
-      transition: border-color 0.3s ease;
-      box-sizing: border-box;
-    }
-
-    input:focus {
-      outline: none;
-      border-color: #202b1d;
-      box-shadow: 0 0 5px rgba(32, 43, 29, 0.3);
-    }
-
-    button[type="submit"] {
-      width: 90%;
-      padding: 12px;
-      background: linear-gradient(135deg, #202b1d, #1a2318);
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 1rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: transform 0.2s ease, background 0.3s ease;
-      margin-top: 10px;
-    }
-
-    button[type="submit"]:hover {
-      background: linear-gradient(135deg, #1a2318, #141a12);
-      transform: translateY(-2px);
-    }
-
-    .toggle-link,
-    .forgot-password {
-      margin-top: 12px;
-      color: #202b1d;
-      font-size: 0.95rem;
-      cursor: pointer;
-      text-decoration: none;
-      transition: color 0.3s ease;
-    }
-
-    .toggle-link:hover,
-    .forgot-password:hover {
-      color: #ecd5a6;
-      text-decoration: underline;
-    }
-
-    .checkbox-group {
-      width: 90%;
-      display: flex;
-      align-items: center;
-      margin: 8px 0;
-    }
-
-    .checkbox-group input {
-      width: auto;
-      margin-right: 10px;
-    }
-
-    .checkbox-group label {
-      font-size: 0.95rem;
-      color: #333;
-    }
-
-    section {
-      min-height: 100vh;
-      padding: 80px 5%;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .section-title {
-      font-size: 2.5rem;
-      margin-bottom: 2rem;
-      text-align: center;
-      position: relative;
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 0.8s, transform 0.8s;
-    }
-
-    .section-title.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .section-title::after {
-      content: "";
-      display: block;
-      width: 80px;
-      height: 3px;
-      background: #ecd5a6;
-      margin: 15px auto;
-    }
-
-    #hero {
-      background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)),
-        url("https://i.pinimg.com/736x/47/f9/78/47f9784cb6d8f4eaf617cb799d43abbc.jpg") no-repeat center center/cover;
-      color: white;
-      text-align: center;
-      justify-content: center;
-      align-items: center;
-    }
-
-    .hero-content {
-      max-width: 800px;
-      margin: 0 auto;
-      opacity: 0;
-      transform: translateY(30px);
-      transition: opacity 1s, transform 1s;
-    }
-
-    .hero-content.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    #hero h1 {
-      font-size: 4rem;
-      margin-bottom: 1rem;
-      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
-    }
-
-    #hero p {
-      font-size: 1.5rem;
-      margin-bottom: 2rem;
-      text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 12px 30px;
-      background: #ecd5a6;
-      color: #202b1d;
-      border-radius: 4px;
-      font-weight: bold;
-      transition: all 0.3s;
-      border: none;
-      cursor: pointer;
-    }
-
-    .btn:hover {
-      background: #e0c893;
-      transform: translateY(-2px);
-    }
-
-    .scroll-prompt {
-      position: absolute;
-      bottom: 30px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: white;
-      font-size: 1rem;
-      animation: bounce 2s infinite;
-      opacity: 0;
-      transition: opacity 1s 0.5s;
-    }
-
-    .scroll-prompt.visible {
-      opacity: 1;
-    }
-
-    @keyframes bounce {
-
-      0%,
-      20%,
-      50%,
-      80%,
-      100% {
-        transform: translateY(0) translateX(-50%);
-      }
-
-      40% {
-        transform: translateY(-20px) translateX(-50%);
-      }
-
-      60% {
-        transform: translateY(-10px) translateX(-50%);
-      }
-    }
-
-    #features {
-      background-color: white;
-    }
-
-    .features-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 30px;
-      margin-top: 50px;
-    }
-
-    .feature-card {
-      flex: 1 1 300px;
-      max-width: 350px;
-      padding: 30px;
-      background: #fff;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-      text-align: center;
-      transition: transform 0.3s, box-shadow 0.3s;
-      opacity: 0;
-      transform: translateY(20px);
-    }
-
-    .feature-card.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .feature-card:hover {
-      transform: translateY(-10px);
-      box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-    }
-
-    .feature-icon {
-      font-size: 3rem;
-      color: #ecd5a6;
-      margin-bottom: 20px;
-    }
-
-    .feature-card h3 {
-      margin-bottom: 15px;
-      font-size: 1.5rem;
-    }
-
-    .carousel-container {
-      max-width: 1200px;
-      width: 100%;
-      margin: 0 auto;
-      text-align: center;
-    }
-
-    .carousel-container h1 {
-      margin-bottom: 30px;
-      color: #333;
-    }
-
-    .carousel {
-      position: relative;
-      width: 100%;
-      overflow: hidden;
-      border-radius: 10px;
-      box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
-      height: 700px;
-    }
-
-    .carousel-inner {
-      display: flex;
-      transition: transform 0.5s ease;
-      height: 100%;
-    }
-
-    .carousel-card {
-      min-width: 100%;
-      height: 100%;
-      padding: 20px;
-      transition: all 0.3s ease;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .carousel-card img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-
-    .carousel-control {
-      position: absolute;
-      top: 50%;
-      transform: translateY(-50%);
-      background-color: rgba(255, 255, 255, 0.7);
-      border: none;
-      color: #333;
-      font-size: 2rem;
-      padding: 10px 15px;
-      border-radius: 50%;
-      cursor: pointer;
-      z-index: 10;
-      transition: all 0.3s ease;
-    }
-
-    .carousel-control:hover {
-      background-color: rgba(255, 255, 255, 0.9);
-    }
-
-    .carousel-indicators {
-      display: flex;
-      justify-content: center;
-      margin-top: 20px;
-    }
-
-    .indicator {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background-color: #bbb;
-      margin: 0 5px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-    }
-
-    .indicator.active {
-      background-color: #333;
-    }
-
-    @media (max-width: 768px) {
-      .carousel {
-        height: 450px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .carousel {
-        height: 350px;
-      }
-    }
-
-    /* Gallery Section Styles */
-    #gallery {
-      background-color: #f8f8f8;
-      padding: 80px 5%;
-    }
-
-    .gallery-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 30px;
-      flex-wrap: wrap;
-    }
-
-    .gallery-controls {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-    }
-
-    .filter-dropdown,
-    .sort-options {
-      position: relative;
-    }
-
-    .filter-dropdown select,
-    .sort-options select {
-      padding: 10px 35px 10px 15px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      background-color: white;
-      appearance: none;
-      font-family: "Montserrat", sans-serif;
-      cursor: pointer;
-      min-width: 180px;
-    }
-
-    .filter-dropdown i {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events: none;
-      color: #666;
-    }
-
-    .sort-options {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .sort-options span {
-      color: #666;
-      font-size: 0.9rem;
-    }
-
-    .artworks-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-      gap: 30px;
-      margin: 0 auto;
-    }
-
-    .artwork-card {
-      background: white;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-      transition: all 0.3s ease;
-      position: relative;
-    }
-
-    .artwork-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .artwork-image-container {
-      position: relative;
-      width: 100%;
-      height: 250px;
-      overflow: hidden;
-    }
-
-    .artwork-image {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      transition: transform 0.5s ease;
-    }
-
-    .artwork-card:hover .artwork-image {
-      transform: scale(1.05);
-    }
-
-    .quick-view {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      width: 100%;
-      background: rgba(0, 0, 0, 0.7);
-      color: white;
-      text-align: center;
-      padding: 10px;
-      transform: translateY(100%);
-      transition: transform 0.3s ease;
-      cursor: pointer;
-    }
-
-    .artwork-card:hover .quick-view {
-      transform: translateY(0);
-    }
-
-    .artwork-actions {
-      position: absolute;
-      top: 15px;
-      right: 15px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      opacity: 0;
-      transition: opacity 0.3s ease;
-    }
-
-    .artwork-card:hover .artwork-actions {
-      opacity: 1;
-    }
-
-    .wishlist-btn,
-    .zoom-btn {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: white;
-      border: none;
-      color: #333;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
-    .wishlist-btn:hover,
-    .zoom-btn:hover {
-      background: #202b1d;
-      color: white;
-    }
-
-    .artwork-info {
-      padding: 20px;
-    }
-
-    .artwork-info h3 {
-      font-size: 1.2rem;
-      margin-bottom: 5px;
-      color: #333;
-    }
-
-    .artist-name {
-      color: #666;
-      font-size: 0.9rem;
-      margin-bottom: 10px;
-    }
-
-    .price-rating {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 15px;
-    }
-
-    .price {
-      font-weight: 600;
-      color: #202b1d;
-      font-size: 1.1rem;
-    }
-
-    .rating {
-      color: #666;
-      font-size: 0.9rem;
-    }
-
-    .rating i {
-      color: #ecd5a6;
-      margin-right: 3px;
-    }
-
-    .buy-btn {
-      width: 100%;
-      padding: 10px;
-      background: #202b1d;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .buy-btn:hover {
-      background: #1a2318;
-    }
-
-    .gallery-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 40px;
-      flex-wrap: wrap;
-      gap: 20px;
-    }
-
-    .load-more-btn {
-      padding: 10px 25px;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.3s ease;
-    }
-
-    .load-more-btn:hover {
-      background: #f0f0f0;
-    }
-
-    .pagination {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .page-btn,
-    .next-btn {
-      width: 40px;
-      height: 40px;
-      border-radius: 6px;
-      border: 1px solid #ddd;
-      background: white;
-      cursor: pointer;
-      transition: all 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .page-btn.active {
-      background: #202b1d;
-      color: white;
-      border-color: #202b1d;
-    }
-
-    .page-btn:hover:not(.active),
-    .next-btn:hover {
-      border-color: #202b1d;
-      color: #202b1d;
-    }
-
-    .next-btn {
-      width: auto;
-      padding: 0 15px;
-      gap: 5px;
-    }
-
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .gallery-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 20px;
-      }
-
-      .gallery-controls {
-        width: 100%;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .filter-dropdown,
-      .sort-options {
-        width: 100%;
-      }
-
-      .filter-dropdown select,
-      .sort-options select {
-        width: 100%;
-      }
-
-      .gallery-footer {
-        justify-content: center;
-      }
-
-      .pagination {
-        margin-top: 20px;
-      }
-    }
-
-    #testimonials {
-      background: linear-gradient(rgba(255, 255, 255, 0.9),
-          rgba(255, 255, 255, 0.9)),
-        url("https://images.unsplash.com/photo-1531685250784-7569952593d2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1974&q=80") no-repeat center center/cover;
-      background-blend-mode: overlay;
-    }
-
-    .testimonials-container {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 30px;
-      margin-top: 50px;
-    }
-
-    .testimonial-card {
-      flex: 1 1 300px;
-      max-width: 350px;
-      padding: 30px;
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
-      opacity: 0;
-      transform: translateY(20px);
-      transition: opacity 1s, transform 1s;
-    }
-
-    .testimonial-card.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    .testimonial-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-
-    .testimonial-avatar {
-      width: 60px;
-      height: 60px;
-      border-radius: 50%;
-      object-fit: cover;
-      margin-right: 15px;
-    }
-
-    .testimonial-author h4 {
-      font-size: 1.2rem;
-      margin-bottom: 5px;
-    }
-
-    .stars {
-      color: #ecd5a6;
-      font-size: 0.9rem;
-      margin-bottom: 5px;
-    }
-
-    .testimonial-text {
-      font-style: italic;
-      color: #555;
-    }
-
-    footer {
-      background: #202b1d;
-      color: white;
-      padding: 50px 5% 30px;
-      text-align: center;
-    }
-
-    .footer-content {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: space-around;
-      max-width: 1200px;
-      margin: 0 auto;
-      gap: 30px;
-    }
-
-    .footer-section {
-      flex: 1 1 300px;
-      text-align: left;
-      margin-bottom: 30px;
-    }
-
-    .footer-section h3 {
-      font-size: 1.5rem;
-      margin-bottom: 20px;
-      color: #ecd5a6;
-    }
-
-    .social-icons {
-      display: flex;
-      gap: 15px;
-      margin-top: 20px;
-    }
-
-    .social-icons a {
-      display: inline-block;
-      width: 40px;
-      height: 40px;
-      background: #333;
-      border-radius: 50%;
-      text-align: center;
-      line-height: 40px;
-      transition: background 0.3s;
-    }
-
-    .social-icons a:hover {
-      background: #ecd5a6;
-      color: #202b1d;
-    }
-
-    .newsletter-form {
-      display: flex;
-      margin-top: 20px;
-    }
-
-    .newsletter-form input {
-      flex: 1;
-      padding: 10px;
-      border: none;
-      border-radius: 4px 0 0 4px;
-    }
-
-    .newsletter-form button {
-      padding: 10px 15px;
-      background: #ecd5a6;
-      color: #202b1d;
-      border: none;
-      border-radius: 0 4px 4px 0;
-      cursor: pointer;
-      transition: background 0.3s;
-    }
-
-    .newsletter-form button:hover {
-      background: #e0c893;
-    }
-
-    .back-to-top {
-      position: fixed;
-      bottom: 30px;
-      right: 30px;
-      width: 50px;
-      height: 50px;
-      background: #ecd5a6;
-      color: #202b1d;
-      border-radius: 50%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      cursor: pointer;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.3s;
-      z-index: 100;
-    }
-
-    .back-to-top.visible {
-      opacity: 1;
-      visibility: visible;
-    }
-
-    .back-to-top:hover {
-      background: #e0c893;
-    }
-
-    .copyright {
-      margin-top: 50px;
-      padding-top: 20px;
-      border-top: 1px solid #444;
-      font-size: 0.9rem;
-      color: #aaa;
-    }
-
-    @media (max-width: 992px) {
-      .modal-content {
-        width: 90%;
-        height: auto;
-        min-height: 500px;
-      }
-
-      .search-container input {
-        width: 150px;
-      }
-
-      .search-container input:focus {
-        width: 180px;
-      }
-    }
-
-    @media (max-width: 768px) {
-      body {
-        padding-top: 60px;
-      }
-
-      nav {
-        padding: 10px 5%;
-      }
-
-      .logo {
-        font-size: 1.5rem;
-      }
-
-      .nav-links {
-        position: fixed;
-        top: 60px;
-        left: 0;
-        width: 100%;
-        background-color: #202b1d;
-        flex-direction: column;
-        align-items: center;
-        padding: 20px 0;
-        transform: translateY(-100%);
-        opacity: 0;
-        transition: all 0.3s;
-        pointer-events: none;
-      }
-
-      .nav-links.active {
-        transform: translateY(0);
-        opacity: 1;
-        pointer-events: all;
-      }
-
-      .nav-links li {
-        margin: 15px 0;
-      }
-
-      .nav-links a {
-        color: white;
-      }
-
-      .nav-links a:hover {
-        color: #ecd5a6;
-      }
-
-      .mobile-menu-btn {
-        display: block;
-      }
-
-      #hero h1 {
-        font-size: 2.5rem;
-      }
-
-      #hero p {
-        font-size: 1.2rem;
-      }
-
-      .section-title {
-        font-size: 2rem;
-      }
-
-      .feature-card,
-      .testimonial-card {
-        flex: 1 1 100%;
-      }
-
-      /* Add this to your existing styles */
-      .artworks-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 30px;
-        margin: 0 auto;
-        width: 100%;
-        overflow: hidden;
-        /* Prevent horizontal overflow */
-      }
-
-      /* Ensure artwork cards don't exceed their container */
-      .artwork-card {
-        width: 100%;
-        max-width: 100%;
-      }
-
-      .login-form,
-      .signup-form {
-        padding: 15px;
-      }
-
-      .form-group,
-      input,
-      button {
-        width: 95%;
-      }
-
-      .form-group.row {
-        flex-direction: column;
-        gap: 6px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      #hero h1 {
-        font-size: 2rem;
-      }
-
-      .section-title {
-        font-size: 1.8rem;
-      }
-
-      .footer-section {
-        text-align: center;
-      }
-
-      .newsletter-form {
-        flex-direction: column;
-      }
-
-      .newsletter-form input {
-        border-radius: 4px;
-        margin-bottom: 10px;
-      }
-
-      .newsletter-form button {
-        border-radius: 4px;
-      }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+    <title>VirtuGallery — Curated Fine Art & Contemporary Marketplace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gallery: {
+                            50: '#f7f8f6',
+                            100: '#edf0eb',
+                            200: '#d7ded3',
+                            500: '#485e43',
+                            700: '#2b3b28',
+                            800: '#202b1d',
+                            900: '#172015',
+                            accent: '#d4af37',
+                            gold: '#c5a059'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .backdrop-glass {
+            background: rgba(255, 255, 255, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+        }
+        .hero-gradient {
+            background: radial-gradient(circle at 50% 20%, rgba(212, 175, 55, 0.08) 0%, rgba(32, 43, 29, 0.04) 50%, rgba(247, 248, 246, 1) 100%);
+        }
+        .artwork-card-hover {
+            transition: all 0.35s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .artwork-card-hover:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 20px 30px -10px rgba(32, 43, 29, 0.12);
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
 </head>
 
-<body>
-  <nav id="navbar">
-    <div class="nav-left">
-      <ul class="nav-links">
-        <li><a href="#hero">Home</a></li>
-        <li><a href="#features">Features</a></li>
-        <li><a href="#gallery">Gallery</a></li>
-        <li><a href="Pages/Marketplace.php" class="marketplace-link">Marketplace</a></li>
-        <li><a href="#about">About Us</a></li>
-      </ul>
-    </div>
-    <div class="logo">VirtuGallery</div>
-    <div class="nav-right">
-      <div class="search-container">
-        <i class="fas fa-search"></i>
-        <input type="text" placeholder="Search..." />
-      </div>
-      <div class="auth-buttons">
-        <a class="login-btn" onclick="showModal('login')">Login</a>
-        <a class="signup-btn" onclick="showModal('signup')">Sign up</a>
-      </div>
-      <button class="mobile-menu-btn">
-        <i class="fas fa-bars"></i>
-      </button>
-    </div>
-  </nav>
+<body class="bg-gallery-50 text-gray-800 font-sans antialiased selection:bg-gallery-800 selection:text-white">
 
-  <!-- Modal for Login/Signup -->
-  <div class="modal" id="auth-modal">
-    <div class="modal-content">
-      <button class="modal-close" onclick="closeModal()">×</button>
-      <div class="image-panel"></div>
-      <div class="form-container">
-        <!-- Login Form -->
-        <div class="login-form visible">
-          <h2>Login</h2>
-          <form onsubmit="return false;">
-            <div class="form-group">
-              <input type="text" placeholder="Email or Username" required />
-            </div>
-            <div class="form-group">
-              <input type="password" placeholder="Password" required />
-            </div>
-            <div class="checkbox-group">
-              <input type="checkbox" id="remember-me" />
-              <label for="remember-me">Remember Me</label>
-            </div>
-            <button type="submit">Login</button>
-          </form>
-          <a href="#" class="forgot-password">Forgot Password?</a>
-          <span class="toggle-link" onclick="showSignup()">Don't have an account? Sign Up</span>
-        </div>
-
-        <!-- Signup Form -->
-        <div class="signup-form hidden">
-          <h2>Sign Up</h2>
-          <form onsubmit="return false;">
-            <div class="form-group row">
-              <input type="text" placeholder="First Name" required />
-              <input type="text" placeholder="Middle Name" />
-            </div>
-            <div class="form-group row">
-              <input type="text" placeholder="Last Name" required />
-              <input type="text" placeholder="Suffix" />
-            </div>
-            <div class="form-group">
-              <input type="email" placeholder="Email Address" required />
-            </div>
-            <div class="form-group">
-              <input
-                type="password"
-                placeholder="Password"
-                required
-                pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}"
-                title="Must contain at least one number, one uppercase and lowercase letter, and at least 8 characters" />
-            </div>
-            <div class="form-group">
-              <input
-                type="password"
-                placeholder="Confirm Password"
-                required />
-            </div>
-            <div class="form-group">
-              <input type="text" placeholder="Username (Optional)" />
-            </div>
-            <div class="form-group row">
-              <input type="text" placeholder="Municipality" required />
-              <input type="text" placeholder="Province" required />
-            </div>
-            <button type="submit">Sign Up</button>
-          </form>
-          <span class="toggle-link" onclick="showLogin()">Already have an account? Login</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Hero Section -->
-  <section id="hero">
-    <div class="hero-content">
-      <h1>Discover Art That Speaks to You</h1>
-      <p>Explore, Collect, and Own Masterpieces</p>
-      <a href="Pages/home.php" class="btn">Begin Your Journey</a>
-    </div>
-    <div class="scroll-prompt">
-      <span>Scroll Down</span>
-      <i class="fas fa-chevron-down"></i>
-    </div>
-  </section>
-
-  <!-- Features Section -->
-  <section id="features">
-    <h2 class="section-title">Why Choose Our Gallery?</h2>
-    <div class="features-container">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i class="fas fa-star"></i>
-        </div>
-        <h3>Curated Collections</h3>
-        <p>
-          Our expert curators handpick each artwork to ensure only the highest
-          quality pieces make it to our gallery.
-        </p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i class="fas fa-lock"></i>
-        </div>
-        <h3>Secure Purchases</h3>
-        <p>
-          Your transactions are protected with bank-level security for
-          complete peace of mind.
-        </p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i class="fas fa-globe"></i>
-        </div>
-        <h3>Local Shipping</h3>
-        <p>
-          We deliver artworks nationwide with specialized packaging to ensure
-          they arrive in perfect condition.
-        </p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <i class="fas fa-paint-brush"></i>
-        </div>
-        <h3>Artist Spotlights</h3>
-        <p>
-          Discover emerging talents and established masters through our
-          featured artist program.
-        </p>
-      </div>
-    </div>
-    <div class="carousel-container">
-    <br>
-    <br>
-    <br>
-    <br>
-    <br>
-      <div class="carousel">
-        <div class="carousel-inner"></div>
-        <div class="carousel-indicators"></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- Gallery Section -->
-  <section id="gallery">
-    <div class="gallery-header">
-      <h2 class="section-title">Trending Masterpieces</h2>
-      <div class="gallery-controls">
-        <div class="filter-dropdown">
-          <select id="category-filter">
-            <option value="all">All Categories</option>
-            <option value="painting">Paintings</option>
-            <option value="sculpture">Sculptures</option>
-            <option value="photography">Photography</option>
-          </select>
-          <i class="fas fa-chevron-down"></i>
-        </div>
-        <div class="sort-options">
-          <span>Sort by:</span>
-          <select id="sort-by">
-            <option value="popular">Most Popular</option>
-            <option value="newest">Newest</option>
-            <option value="price-low">Price: Low to High</option>
-            <option value="price-high">Price: High to Low</option>
-          </select>
-        </div>
-      </div>
+    <!-- Global Toast Notification -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 transform translate-y-24 opacity-0 transition-all duration-300 ease-out pointer-events-none flex items-center space-x-3 bg-gallery-900 text-white px-5 py-3.5 rounded-xl shadow-2xl border border-gallery-700/50">
+        <div id="toast-icon" class="text-gallery-gold"><i class="fas fa-check-circle text-lg"></i></div>
+        <p id="toast-message" class="text-sm font-medium">Notification</p>
     </div>
 
-    <div class="artworks-grid">
-      <div class="artwork-card" data-category="painting" data-price="2400">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1945&q=80"
-            alt="Abstract painting"
-            class="artwork-image" />
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
+    <!-- Navigation Header -->
+    <header id="main-header" class="fixed top-0 left-0 right-0 z-40 transition-all duration-300 border-b border-transparent">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                
+                <!-- Logo -->
+                <a href="index.php" class="flex items-center space-x-3 group">
+                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md group-hover:scale-105 transition-transform">V</span>
+                    <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                </a>
+
+                <!-- Desktop Navigation Links -->
+                <nav class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
+                    <a href="#hero" class="hover:text-gallery-800 transition-colors">Home</a>
+                    <a href="#gallery" class="hover:text-gallery-800 transition-colors">Gallery</a>
+                    <a href="Pages/Marketplace.php" class="hover:text-gallery-800 transition-colors flex items-center gap-1.5">
+                        Marketplace <span class="text-[10px] uppercase font-bold tracking-wider bg-gallery-100 text-gallery-800 px-2 py-0.5 rounded-full">Live</span>
+                    </a>
+                    <a href="#artists" class="hover:text-gallery-800 transition-colors">Artists</a>
+                    <a href="#about" class="hover:text-gallery-800 transition-colors">About</a>
+                </nav>
+
+                <!-- Actions: Cart + Auth -->
+                <div class="flex items-center space-x-3 sm:space-x-4">
+                    <!-- Shopping Cart Icon -->
+                    <a href="Pages/cart.html" class="relative p-2 text-gray-700 hover:text-gallery-800 transition-colors" title="View Cart">
+                        <i class="fas fa-shopping-bag text-xl"></i>
+                        <span id="nav-cart-badge" class="absolute top-0 right-0 w-5 h-5 bg-gallery-800 text-white rounded-full text-xs font-bold flex items-center justify-center scale-0 transition-transform">0</span>
+                    </a>
+
+                    <?php if ($isLoggedIn): ?>
+                        <div class="hidden sm:flex items-center space-x-3">
+                            <a href="Pages/home.php" class="inline-flex items-center space-x-2 text-sm font-semibold text-gallery-800 bg-gallery-100 hover:bg-gallery-200 px-4 py-2.5 rounded-full transition-all">
+                                <i class="fas fa-compass text-gallery-gold"></i>
+                                <span>Feed & Community</span>
+                            </a>
+                            <a href="Pages/UserProfilePage.php" class="p-2 text-gray-700 hover:text-gallery-800" title="Profile">
+                                <i class="far fa-user-circle text-2xl"></i>
+                            </a>
+                            <button onclick="handleLogout()" class="text-xs uppercase tracking-wider text-red-600 hover:text-red-700 font-semibold px-2">Logout</button>
+                        </div>
+                    <?php else: ?>
+                        <div class="hidden sm:flex items-center space-x-3">
+                            <button onclick="openModal('login')" class="text-sm font-medium text-gray-700 hover:text-gallery-800 px-4 py-2 transition-colors">Sign In</button>
+                            <button onclick="openModal('register')" class="text-sm font-semibold text-white bg-gallery-800 hover:bg-gallery-900 px-5 py-2.5 rounded-full shadow-sm hover:shadow transition-all">Join Gallery</button>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Mobile Hamburger Button -->
+                    <button id="mobile-menu-toggle" class="md:hidden p-2 text-gray-700 hover:text-gallery-800 focus:outline-none" aria-label="Toggle Navigation">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                </div>
+            </div>
         </div>
-        <div class="artwork-info">
-          <h3>Whispers of Color</h3>
-          <p class="artist-name">by Elena Rodriguez</p>
-          <div class="price-rating">
-            <span class="price">$2,400</span>
+    </header>
+
+    <!-- Mobile Drawer Menu -->
+    <div id="mobile-drawer" class="fixed inset-0 z-50 hidden">
+        <!-- Backdrop -->
+        <div id="mobile-drawer-backdrop" class="fixed inset-0 bg-black/40 backdrop-blur-sm transition-opacity opacity-0"></div>
+        <!-- Drawer Panel -->
+        <div id="mobile-drawer-panel" class="fixed right-0 top-0 bottom-0 w-5/6 max-w-sm bg-white shadow-2xl p-6 flex flex-col justify-between transform translate-x-full transition-transform duration-300 ease-out">
+            <div>
+                <div class="flex items-center justify-between pb-6 border-b border-gray-100">
+                    <span class="font-serif text-xl font-bold text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                    <button id="mobile-drawer-close" class="p-2 text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <nav class="mt-6 flex flex-col space-y-4 text-base font-medium text-gray-700">
+                    <a href="#hero" class="mobile-nav-link py-2 hover:text-gallery-800">Home</a>
+                    <a href="#gallery" class="mobile-nav-link py-2 hover:text-gallery-800">Trending Gallery</a>
+                    <a href="Pages/Marketplace.php" class="mobile-nav-link py-2 hover:text-gallery-800 flex items-center justify-between">
+                        <span>Marketplace</span>
+                        <span class="text-[10px] bg-gallery-100 text-gallery-800 px-2 py-0.5 rounded-full font-bold">LIVE</span>
+                    </a>
+                    <a href="#artists" class="mobile-nav-link py-2 hover:text-gallery-800">Featured Artists</a>
+                    <a href="Pages/cart.html" class="mobile-nav-link py-2 hover:text-gallery-800 flex items-center justify-between">
+                        <span>Shopping Cart</span>
+                        <span id="mobile-cart-badge" class="text-xs bg-gallery-800 text-white px-2 py-0.5 rounded-full">0</span>
+                    </a>
+                    <a href="#about" class="mobile-nav-link py-2 hover:text-gallery-800">About Art Collective</a>
+                    <?php if ($isLoggedIn): ?>
+                        <div class="pt-4 border-t border-gray-100 flex flex-col space-y-3">
+                            <a href="Pages/home.php" class="w-full text-center py-2.5 rounded-xl bg-gallery-800 text-white font-medium">Community Feed</a>
+                            <a href="Pages/UserProfilePage.php" class="w-full text-center py-2.5 rounded-xl bg-gallery-100 text-gallery-800 font-medium">My Profile</a>
+                            <button onclick="handleLogout()" class="w-full py-2 text-center text-red-600 text-sm font-semibold">Sign Out</button>
+                        </div>
+                    <?php endif; ?>
+                </nav>
+            </div>
+            <?php if (!$isLoggedIn): ?>
+                <div class="pt-6 border-t border-gray-100 space-y-3">
+                    <button onclick="closeMobileDrawer(); openModal('login')" class="w-full py-3 rounded-xl border border-gray-300 font-medium text-gray-700 hover:bg-gray-50">Sign In</button>
+                    <button onclick="closeMobileDrawer(); openModal('register')" class="w-full py-3 rounded-xl bg-gallery-800 text-white font-medium hover:bg-gallery-900 shadow-md">Create Collector Account</button>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section id="hero" class="relative pt-32 pb-20 md:pt-40 md:pb-28 hero-gradient overflow-hidden">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
+                
+                <!-- Left Content -->
+                <div class="lg:col-span-7 space-y-8 text-center lg:text-left">
+                    <div class="inline-flex items-center space-x-2 px-3.5 py-1.5 rounded-full bg-gallery-100/80 border border-gallery-200 text-gallery-800 text-xs font-semibold uppercase tracking-wider">
+                        <span class="w-2 h-2 rounded-full bg-gallery-gold animate-pulse"></span>
+                        <span>Premier Philippine Digital Art Gallery</span>
+                    </div>
+
+                    <h1 class="font-serif text-4xl sm:text-5xl md:text-6xl font-bold text-gallery-900 leading-[1.15] tracking-tight">
+                        Discover Art That Speaks Directly To Your Soul.
+                    </h1>
+
+                    <p class="text-base sm:text-lg text-gray-600 max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
+                        Explore certified authentic original masterpieces, support emerging and acclaimed independent artists, and curate your personalized gallery collection with nationwide delivery.
+                    </p>
+
+                    <!-- CTAs -->
+                    <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-2">
+                        <a href="Pages/Marketplace.php" class="w-full sm:w-auto inline-flex items-center justify-center space-x-3 bg-gallery-800 hover:bg-gallery-900 text-white px-8 py-4 rounded-full font-medium shadow-lg hover:shadow-xl transition-all duration-300 group">
+                            <span>Explore Marketplace</span>
+                            <i class="fas fa-arrow-right text-gallery-gold group-hover:translate-x-1 transition-transform"></i>
+                        </a>
+                        <?php if ($isLoggedIn): ?>
+                            <a href="Pages/home.php" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-white hover:bg-gallery-100 text-gallery-900 border border-gallery-200 px-7 py-4 rounded-full font-medium transition-all">
+                                <i class="fas fa-layer-group text-gallery-gold"></i>
+                                <span>Go to Community Feed</span>
+                            </a>
+                        <?php else: ?>
+                            <button onclick="openModal('register')" class="w-full sm:w-auto inline-flex items-center justify-center space-x-2 bg-white hover:bg-gallery-100 text-gallery-900 border border-gallery-200 px-7 py-4 rounded-full font-medium transition-all">
+                                <i class="fas fa-sparkles text-gallery-gold"></i>
+                                <span>Become a Collector</span>
+                            </button>
+                        <?php endif; ?>
+                    </div>
+
+                    <!-- Live Metric Counters -->
+                    <div class="pt-8 border-t border-gallery-200/60 grid grid-cols-3 gap-4 max-w-md mx-auto lg:mx-0 text-center lg:text-left">
+                        <div>
+                            <span class="block font-serif text-2xl sm:text-3xl font-bold text-gallery-900"><?= number_format($statsArtworks) ?>+</span>
+                            <span class="text-xs uppercase tracking-wider text-gray-500 font-medium">Curated Works</span>
+                        </div>
+                        <div>
+                            <span class="block font-serif text-2xl sm:text-3xl font-bold text-gallery-900"><?= number_format($statsArtists) ?></span>
+                            <span class="text-xs uppercase tracking-wider text-gray-500 font-medium">Verified Artists</span>
+                        </div>
+                        <div>
+                            <span class="block font-serif text-2xl sm:text-3xl font-bold text-gallery-900"><?= number_format($statsUsers) ?></span>
+                            <span class="text-xs uppercase tracking-wider text-gray-500 font-medium">Art Enthusiasts</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Artwork Mosaic / Carousel Showcase -->
+                <div class="lg:col-span-5 relative">
+                    <div class="relative mx-auto max-w-sm sm:max-w-md lg:max-w-none">
+                        <!-- Ambient glow -->
+                        <div class="absolute -inset-4 bg-gradient-to-tr from-gallery-gold/20 via-gallery-500/10 to-transparent rounded-3xl blur-2xl"></div>
+
+                        <!-- Main Featured Piece -->
+                        <div class="relative bg-white rounded-2xl overflow-hidden shadow-2xl border border-gray-100 p-3 sm:p-4 transition-transform hover:scale-[1.01] duration-500">
+                            <div class="relative aspect-[4/5] rounded-xl overflow-hidden bg-gray-100">
+                                <img id="hero-showcase-img" 
+                                     src="<?= !empty($trendingArtworks[0]['image_path']) ? htmlspecialchars($trendingArtworks[0]['image_path']) : 'uploads/artwork_1_683f1187c6f7e.jpg' ?>" 
+                                     alt="Featured masterpiece" 
+                                     class="w-full h-full object-cover transition-opacity duration-500" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-5 text-white">
+                                    <span class="text-xs uppercase tracking-widest text-gallery-gold font-semibold">Spotlight Collection</span>
+                                    <h3 id="hero-showcase-title" class="font-serif text-xl sm:text-2xl font-bold text-white"><?= !empty($trendingArtworks[0]['title']) ? htmlspecialchars($trendingArtworks[0]['title']) : 'Monalisa Reimagined' ?></h3>
+                                    <p id="hero-showcase-artist" class="text-sm text-gray-200">by <?= !empty($trendingArtworks[0]['first_name']) ? htmlspecialchars($trendingArtworks[0]['first_name'] . ' ' . $trendingArtworks[0]['last_name']) : 'Cedrick Albuero' ?></p>
+                                </div>
+                            </div>
+                            
+                            <!-- Thumbnail Switchers -->
+                            <div class="flex items-center space-x-2 pt-3 overflow-x-auto hide-scrollbar">
+                                <?php foreach (array_slice($trendingArtworks, 0, 5) as $idx => $art): ?>
+                                    <button onclick="switchHeroPiece('<?= htmlspecialchars($art['image_path']) ?>', '<?= htmlspecialchars(addslashes($art['title'])) ?>', '<?= htmlspecialchars(addslashes($art['first_name'] . ' ' . $art['last_name'])) ?>', this)" 
+                                            class="hero-thumb flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 <?= $idx === 0 ? 'border-gallery-gold scale-105' : 'border-transparent opacity-70 hover:opacity-100' ?> transition-all">
+                                        <img src="<?= htmlspecialchars($art['image_path']) ?>" alt="thumbnail" class="w-full h-full object-cover" />
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </section>
+
+    <!-- Trending Masterpieces (Dynamic Live Gallery) -->
+    <section id="gallery" class="py-20 md:py-28 bg-white border-t border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
+            <!-- Section Header -->
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
+                <div>
+                    <span class="text-xs font-bold uppercase tracking-widest text-gallery-gold">Authentic Works</span>
+                    <h2 class="font-serif text-3xl sm:text-4xl md:text-5xl font-bold text-gallery-900 mt-2">Trending Masterpieces</h2>
+                    <p class="text-gray-500 mt-2 text-sm sm:text-base font-light">Explore original artworks collected and appreciated by our vibrant community.</p>
+                </div>
 
-      <div class="artwork-card" data-category="sculpture" data-price="3800">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1578926375605-eaf7559b1458?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1986&q=80"
-            alt="Modern sculpture"
-            class="artwork-image"=/>
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
+                <!-- Category Filtering Controls -->
+                <div class="flex items-center space-x-2 overflow-x-auto hide-scrollbar pb-2">
+                    <button onclick="filterGallery('all', this)" class="gallery-filter-btn active px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gallery-800 text-white shadow-sm transition-all">All</button>
+                    <button onclick="filterGallery('paintings', this)" class="gallery-filter-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gallery-100 text-gray-700 hover:bg-gallery-200 transition-all">Paintings</button>
+                    <button onclick="filterGallery('sculpture', this)" class="gallery-filter-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gallery-100 text-gray-700 hover:bg-gallery-200 transition-all">Sculptures</button>
+                    <button onclick="filterGallery('photography', this)" class="gallery-filter-btn px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-gallery-100 text-gray-700 hover:bg-gallery-200 transition-all">Photography</button>
+                </div>
+            </div>
+
+            <!-- Dynamic Artworks Grid -->
+            <div id="artworks-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
+                <?php if (empty($trendingArtworks)): ?>
+                    <div class="col-span-full py-16 text-center text-gray-400">
+                        <i class="fas fa-palette text-5xl mb-4"></i>
+                        <p class="text-lg font-serif">No artworks published yet. Be the first to upload!</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($trendingArtworks as $art): ?>
+                        <div class="gallery-card artwork-card-hover bg-white rounded-2xl overflow-hidden border border-gray-100 flex flex-col justify-between"
+                             data-category="<?= htmlspecialchars($art['category']) ?>">
+                            
+                            <!-- Image Container -->
+                            <div class="relative aspect-square overflow-hidden bg-gray-50 group">
+                                <img src="<?= htmlspecialchars($art['image_path']) ?>" 
+                                     alt="<?= htmlspecialchars($art['title']) ?>" 
+                                     loading="lazy"
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                                
+                                <span class="absolute top-3 left-3 bg-white/90 backdrop-blur-md text-gallery-800 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-sm">
+                                    <?= htmlspecialchars($art['category']) ?>
+                                </span>
+
+                                <!-- Quick Actions Overlay -->
+                                <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center space-x-3">
+                                    <button onclick="quickViewArtwork(<?= htmlspecialchars(json_encode($art)) ?>)" 
+                                            class="w-10 h-10 rounded-full bg-white text-gray-800 flex items-center justify-center hover:bg-gallery-gold hover:text-white transition-colors shadow-lg"
+                                            title="Quick View">
+                                        <i class="fas fa-eye text-sm"></i>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Card Details -->
+                            <div class="p-5 flex flex-col flex-grow justify-between">
+                                <div>
+                                    <div class="flex items-start justify-between gap-2">
+                                        <h3 class="font-serif text-lg font-bold text-gallery-900 truncate" title="<?= htmlspecialchars($art['title']) ?>">
+                                            <?= htmlspecialchars($art['title']) ?>
+                                        </h3>
+                                        <div class="flex items-center space-x-1 text-xs text-rose-500 font-semibold">
+                                            <i class="fas fa-heart"></i>
+                                            <span><?= $art['likes_count'] ?></span>
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1 font-medium">
+                                        by <span class="text-gray-800"><?= htmlspecialchars($art['first_name'] . ' ' . $art['last_name']) ?></span>
+                                    </p>
+                                </div>
+
+                                <div class="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between">
+                                    <div>
+                                        <span class="text-[10px] uppercase text-gray-400 font-bold tracking-wider block">Price</span>
+                                        <span class="text-base font-bold text-gallery-800">
+                                            <?= !empty($art['price']) && $art['price'] > 0 ? '₱' . number_format($art['price'], 2) : 'Not for sale' ?>
+                                        </span>
+                                    </div>
+
+                                    <?php if (!empty($art['price']) && $art['price'] > 0): ?>
+                                        <button onclick="addToCart({
+                                                    id: <?= (int)$art['id'] ?>,
+                                                    title: '<?= htmlspecialchars(addslashes($art['title'])) ?>',
+                                                    artist: '<?= htmlspecialchars(addslashes($art['first_name'] . ' ' . $art['last_name'])) ?>',
+                                                    price: <?= (float)$art['price'] ?>,
+                                                    image: '<?= htmlspecialchars(addslashes($art['image_path'])) ?>'
+                                                })" 
+                                                class="inline-flex items-center space-x-1.5 text-xs font-semibold bg-gallery-100 hover:bg-gallery-800 text-gallery-800 hover:text-white px-3.5 py-2 rounded-xl transition-all">
+                                            <i class="fas fa-cart-plus"></i>
+                                            <span>Add</span>
+                                        </button>
+                                    <?php else: ?>
+                                        <a href="Pages/home.php" class="text-xs font-semibold text-gray-500 hover:text-gallery-800 px-3 py-1.5">View</a>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- Explore More CTA -->
+            <div class="mt-14 text-center">
+                <a href="Pages/Marketplace.php" class="inline-flex items-center space-x-2 text-sm font-semibold text-gallery-800 hover:text-gallery-900 border-2 border-gallery-800 hover:bg-gallery-800 hover:text-white px-8 py-3.5 rounded-full transition-all duration-300">
+                    <span>View Complete Art Collection</span>
+                    <i class="fas fa-arrow-right"></i>
+                </a>
+            </div>
+
         </div>
-        <div class="artwork-info">
-          <h3>Eternal Forms</h3>
-          <p class="artist-name">by Marcus Chen</p>
-          <div class="price-rating">
-            <span class="price">$3,800</span>
+    </section>
+
+    <!-- Featured Artists Showcase -->
+    <section id="artists" class="py-20 bg-gallery-50 border-t border-gray-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-14">
+                <span class="text-xs font-bold uppercase tracking-widest text-gallery-gold">Creative Minds</span>
+                <h2 class="font-serif text-3xl sm:text-4xl font-bold text-gallery-900 mt-2">Featured Independent Artists</h2>
+                <p class="text-gray-500 mt-2 text-sm sm:text-base font-light">Meet the visionary creators contributing original artwork to our contemporary gallery.</p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <?php foreach ($featuredArtists as $artist): ?>
+                    <div class="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md transition-shadow text-center flex flex-col justify-between">
+                        <div>
+                            <div class="relative w-20 h-20 mx-auto rounded-full overflow-hidden ring-4 ring-gallery-100 mb-4 bg-gray-100">
+                                <img src="<?= !empty($artist['profile_picture']) ? htmlspecialchars($artist['profile_picture']) : 'Pages/profile_image/default.jpg' ?>" 
+                                     alt="<?= htmlspecialchars($artist['first_name']) ?>" 
+                                     class="w-full h-full object-cover" />
+                            </div>
+                            <h3 class="font-serif text-lg font-bold text-gallery-900"><?= htmlspecialchars($artist['stage_name']) ?></h3>
+                            <p class="text-xs text-gray-500">@<?= htmlspecialchars($artist['username']) ?></p>
+                            <span class="inline-block mt-2 text-[11px] font-medium text-gallery-800 bg-gallery-100 px-3 py-1 rounded-full">
+                                <?= htmlspecialchars($artist['art_style']) ?>
+                            </span>
+                        </div>
+
+                        <div class="pt-5 mt-5 border-t border-gray-100 flex items-center justify-around text-xs text-gray-600">
+                            <div>
+                                <span class="font-bold text-gallery-900 block"><?= $artist['artwork_count'] ?></span>
+                                <span class="text-[10px] uppercase text-gray-400">Works</span>
+                            </div>
+                            <div class="w-px h-6 bg-gray-100"></div>
+                            <div>
+                                <span class="font-bold text-gallery-900 block"><?= $artist['followers_count'] ?></span>
+                                <span class="text-[10px] uppercase text-gray-400">Followers</span>
+                            </div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+
+    <!-- Why VirtuGallery Features -->
+    <section id="about" class="py-20 bg-gallery-900 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-2xl mx-auto mb-16">
+                <span class="text-xs font-bold uppercase tracking-widest text-gallery-gold">Our Philosophy</span>
+                <h2 class="font-serif text-3xl sm:text-4xl font-bold text-white mt-2">Art Collecting, Redefined</h2>
+                <p class="text-gray-400 mt-2 text-sm sm:text-base font-light">Connecting art lovers and creators through a seamless, transparent platform.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="bg-gallery-800/60 p-8 rounded-2xl border border-gallery-700/50">
+                    <div class="w-12 h-12 rounded-xl bg-gallery-700/60 text-gallery-gold flex items-center justify-center text-xl mb-6">
+                        <i class="fas fa-certificate"></i>
+                    </div>
+                    <h3 class="font-serif text-xl font-bold mb-3">Authenticity Certified</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed font-light">
+                        Every piece on VirtuGallery is directly published and shipped by verified artists, with detailed provenance and digital ownership logs.
+                    </p>
+                </div>
+
+                <div class="bg-gallery-800/60 p-8 rounded-2xl border border-gallery-700/50">
+                    <div class="w-12 h-12 rounded-xl bg-gallery-700/60 text-gallery-gold flex items-center justify-center text-xl mb-6">
+                        <i class="fas fa-box-open"></i>
+                    </div>
+                    <h3 class="font-serif text-xl font-bold mb-3">Protective Fine Art Delivery</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed font-light">
+                        Nationwide museum-grade packaging ensures paintings, sculptures, and framed prints reach your doorstep in immaculate pristine condition.
+                    </p>
+                </div>
+
+                <div class="bg-gallery-800/60 p-8 rounded-2xl border border-gallery-700/50">
+                    <div class="w-12 h-12 rounded-xl bg-gallery-700/60 text-gallery-gold flex items-center justify-center text-xl mb-6">
+                        <i class="fas fa-hand-holding-heart"></i>
+                    </div>
+                    <h3 class="font-serif text-xl font-bold mb-3">Direct Artist Support</h3>
+                    <p class="text-gray-400 text-sm leading-relaxed font-light">
+                        Our platform empowers creators by giving independent talent fair compensation, transparent pricing, and direct patron engagement.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gallery-900 border-t border-gallery-800 py-12 text-gray-400 text-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-6">
+            <div class="flex items-center space-x-3">
+                <span class="w-8 h-8 rounded-full bg-gallery-gold text-gallery-900 flex items-center justify-center font-serif font-bold">V</span>
+                <span class="font-serif text-lg font-bold text-white tracking-tight">VirtuGallery</span>
+            </div>
+            <div class="flex items-center space-x-6 text-xs uppercase tracking-wider text-gray-500">
+                <a href="#hero" class="hover:text-white transition-colors">Home</a>
+                <a href="Pages/Marketplace.php" class="hover:text-white transition-colors">Marketplace</a>
+                <a href="Pages/ranking.php" class="hover:text-white transition-colors">Rankings</a>
+                <a href="shanaya/index.php" class="hover:text-white transition-colors">Curator CMS</a>
+            </div>
+            <p class="text-xs text-gray-500">© <?= date('Y') ?> VirtuGallery Art Collective. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Quick View Artwork Modal -->
+    <div id="quick-view-modal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeQuickView()"></div>
+        <div class="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-3xl sm:w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row max-h-[90vh]">
+            <div class="w-full md:w-1/2 bg-gray-100 relative aspect-square md:aspect-auto">
+                <img id="qv-image" src="" alt="Artwork" class="w-full h-full object-cover" />
+            </div>
+            <div class="w-full md:w-1/2 p-6 sm:p-8 flex flex-col justify-between overflow-y-auto">
+                <div>
+                    <div class="flex items-center justify-between mb-2">
+                        <span id="qv-category" class="text-xs font-bold uppercase tracking-wider text-gallery-gold"></span>
+                        <button onclick="closeQuickView()" class="text-gray-400 hover:text-gray-600 p-1"><i class="fas fa-times text-lg"></i></button>
+                    </div>
+                    <h3 id="qv-title" class="font-serif text-2xl font-bold text-gallery-900"></h3>
+                    <p id="qv-artist" class="text-sm text-gray-500 mt-1"></p>
+                    <p id="qv-description" class="text-gray-600 text-sm mt-4 leading-relaxed font-light"></p>
+                </div>
+                <div class="pt-6 mt-6 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs uppercase text-gray-400 font-semibold block">Investment</span>
+                        <span id="qv-price" class="text-xl font-bold text-gallery-900"></span>
+                    </div>
+                    <button id="qv-cart-btn" class="bg-gallery-800 hover:bg-gallery-900 text-white px-6 py-3 rounded-xl text-sm font-semibold transition-all">
+                        Add to Cart
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth Modal (Login / Sign Up) -->
+    <div id="auth-modal" class="fixed inset-0 z-50 hidden">
+        <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="fixed inset-4 sm:inset-auto sm:top-1/2 sm:left-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2 sm:max-w-md sm:w-full bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-h-[95vh] overflow-y-auto">
             
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
+            <div class="flex items-center justify-between pb-4 border-b border-gray-100">
+                <div class="flex items-center space-x-2">
+                    <span class="w-7 h-7 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif text-xs font-bold">V</span>
+                    <span class="font-serif text-lg font-bold text-gallery-900">VirtuGallery</span>
+                </div>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times"></i></button>
+            </div>
 
-      <div class="artwork-card" data-category="painting" data-price="1950">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1531913764164-f85c52e6e654?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1932&q=80"
-            alt="Portrait painting"
-            class="artwork-image" />
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
-        </div>
-        <div class="artwork-info">
-          <h3>Silent Gaze</h3>
-          <p class="artist-name">by Aisha Johnson</p>
-          <div class="price-rating">
-            <span class="price">$1,950</span>
-            
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
+            <!-- Login View -->
+            <div id="modal-login-view" class="pt-6">
+                <h3 class="font-serif text-2xl font-bold text-gallery-900">Welcome Back</h3>
+                <p class="text-xs text-gray-500 mt-1">Sign in to manage your collection and favorites.</p>
 
-      <div class="artwork-card" data-category="photography" data-price="2800">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1558403194-611308249627?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80"
-            alt="Landscape painting"
-            class="artwork-image" />
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
-        </div>
-        <div class="artwork-info">
-          <h3>Mountain Dreams</h3>
-          <p class="artist-name">by Thomas Wright</p>
-          <div class="price-rating">
-            <span class="price">$2,800</span>
-            
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
+                <form id="form-login" onsubmit="submitLogin(event)" class="mt-6 space-y-4">
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Email or Username</label>
+                        <input type="text" id="login-identifier" required placeholder="ertnac or james@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none transition-colors" />
+                    </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Password</label>
+                        <input type="password" id="login-password" required placeholder="••••••••" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none transition-colors" />
+                    </div>
+                    <button type="submit" class="w-full py-3.5 bg-gallery-800 hover:bg-gallery-900 text-white rounded-xl text-sm font-semibold shadow-md transition-all">Sign In</button>
+                </form>
 
-      <div class="artwork-card" data-category="digital" data-price="1250">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1626785774573-4b799315345d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2071&q=80"
-            alt="Digital art"
-            class="artwork-image" />
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
-        </div>
-        <div class="artwork-info">
-          <h3>Digital Dreams</h3>
-          <p class="artist-name">by Sam Wilson</p>
-          <div class="price-rating">
-            <span class="price">$1,250</span>
-            
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
+                <p class="text-center text-xs text-gray-500 mt-6">
+                    Don't have an account? 
+                    <button onclick="switchModalView('register')" class="text-gallery-gold font-bold hover:underline">Create one</button>
+                </p>
+            </div>
 
-      <div class="artwork-card" data-category="painting" data-price="3200">
-        <div class="artwork-image-container">
-          <img
-            src="https://images.unsplash.com/photo-1579547945413-497e1b99dac0?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80"
-            alt="Abstract painting"
-            class="artwork-image" />
-          <div class="quick-view">Quick View</div>
-          <div class="artwork-actions">
-            <button class="wishlist-btn" title="Add to wishlist"><i class="far fa-heart"></i></button>
-            <button class="zoom-btn" title="Zoom"><i class="fas fa-search-plus"></i></button>
-          </div>
+            <!-- Register View -->
+            <div id="modal-register-view" class="pt-6 hidden">
+                <h3 class="font-serif text-2xl font-bold text-gallery-900">Join VirtuGallery</h3>
+                <p class="text-xs text-gray-500 mt-1">Discover, collect, and connect with living artists.</p>
+
+                <form id="form-register" onsubmit="submitRegister(event)" class="mt-5 space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="reg-fname" required placeholder="First Name" class="px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                        <input type="text" id="reg-lname" required placeholder="Last Name" class="px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    </div>
+                    <input type="text" id="reg-username" placeholder="Username (optional)" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    <input type="email" id="reg-email" required placeholder="Email Address" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="reg-municipality" required placeholder="Municipality (e.g. Alaminos)" class="px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                        <input type="text" id="reg-province" required placeholder="Province (e.g. Laguna)" class="px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    </div>
+                    <input type="password" id="reg-password" required placeholder="Password (Min 8 chars, 1 upper, 1 number)" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    <input type="password" id="reg-confirm-password" required placeholder="Confirm Password" class="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-xs focus:border-gallery-800 focus:outline-none" />
+                    
+                    <button type="submit" class="w-full py-3.5 bg-gallery-800 hover:bg-gallery-900 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-md transition-all mt-2">Complete Registration</button>
+                </form>
+
+                <p class="text-center text-xs text-gray-500 mt-4">
+                    Already registered? 
+                    <button onclick="switchModalView('login')" class="text-gallery-gold font-bold hover:underline">Sign In</button>
+                </p>
+            </div>
+
         </div>
-        <div class="artwork-info">
-          <h3>Color Symphony</h3>
-          <p class="artist-name">by Maria Gonzalez</p>
-          <div class="price-rating">
-            <span class="price">$3,200</span>
-          </div>
-          <button class="buy-btn">Add to Cart</button>
-        </div>
-      </div>
     </div>
 
-    <div class="gallery-footer">
-      <button class="load-more-btn">Load More</button>
-      <div class="pagination">
-        <button class="page-btn active">1</button>
-        <button class="page-btn">2</button>
-        <button class="page-btn">3</button>
-        <span>...</span>
-        <button class="page-btn">5</button>
-        <button class="next-btn">Next <i class="fas fa-chevron-right"></i></button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Testimonials Section -->
-  <section id="testimonials">
-    <h2 class="section-title">What Collectors Say</h2>
-    <div class="testimonials-container">
-      <div class="testimonial-card">
-        <div class="testimonial-header">
-          <img
-            src="https://randomuser.me/api/portraits/men/45.jpg"
-            alt="Sarah Johnson"
-            class="testimonial-avatar" />
-          <div class="testimonial-author">
-            <h4>Sir Kevin Daryl Calica</h4>
-            <div class="stars">★★★★</div>
-          </div>
-        </div>
-        <p class="testimonial-text">
-          "I think for me yes, it helps a lot. thank you..."
-        </p>
-      </div>
-      <div class="testimonial-card">
-        <div class="testimonial-header">
-          <img
-            src="https://randomuser.me/api/portraits/women/32.jpg"
-            alt="Michael Chen"
-            class="testimonial-avatar" />
-          <div class="testimonial-author">
-            <h4>Shanaya Concibido</h4>
-            <div class="stars">★★★★★</div>
-          </div>
-        </div>
-        <p class="testimonial-text">
-          "I've discovered so many incredible emerging artists through this
-          platform. The quality of artworks is consistently outstanding."
-        </p>
-      </div>
-      <div class="testimonial-card">
-        <div class="testimonial-header">
-          <img
-            src="https://randomuser.me/api/portraits/women/68.jpg"
-            alt="Priya Patel"
-            class="testimonial-avatar" />
-          <div class="testimonial-author">
-            <h4>Topher Hilairon</h4>
-            <div class="stars">★★★★★</div>
-          </div>
-        </div>
-        <p class="testimonial-text">
-          "The local shipping was incredibly careful and professional. My artwork
-          arrived in perfect condition, beautifully packaged. Will definitely
-          buy again!"
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- Footer -->
-  <footer>
-    <div class="footer-content">
-      <div class="footer-section">
-        <h3>VirtuGallery</h3>
-        <p>
-          Discover and collect exceptional artworks from around the world. Our
-          mission is to connect art lovers with talented artists.
-        </p>
-        <div class="social-icons">
-          <a href="#"><i class="fab fa-instagram"></i></a>
-          <a href="#"><i class="fab fa-twitter"></i></a>
-          <a href="#"><i class="fab fa-facebook-f"></i></a>
-          <a href="#"><i class="fab fa-pinterest"></i></a>
-        </div>
-      </div>
-      <div class="footer-section">
-        <h3>Quick Links</h3>
-        <ul>
-          <li><a href="#hero">Home</a></li>
-          <li><a href="#features">Features</a></li>
-          <li><a href="#gallery">Gallery</a></li>
-          <li><a href="#testimonials">Testimonials</a></li>
-          <li><a href="#">About Us</a></li>
-        </ul>
-      </div>
-      <div class="footer-section">
-        <h3>Newsletter</h3>
-        <p>
-          Subscribe to receive updates on new arrivals, exclusive offers, and
-          artist spotlights.
-        </p>
-        <form class="newsletter-form">
-          <input type="email" placeholder="Your email address" />
-          <button type="submit">Subscribe</button>
-        </form>
-      </div>
-    </div>
-    <div class="copyright">
-      <p>© 2025 VirtuGallery | Designed by Creative Minds</p>
-    </div>
-  </footer>
-
-  <a href="#hero" class="back-to-top">
-    <i class="fas fa-arrow-up"></i>
-  </a>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-
-      window.addEventListener('scroll', function() {
-        const header = document.querySelector('header');
-        header.classList.toggle('scrolled', window.scrollY > 50);
-      });
-
-
-      const galleryContainer = document.querySelector('.artworks-grid');
-      if (galleryContainer) {
-        galleryContainer.style.display = 'grid';
-        galleryContainer.style.gridTemplateColumns = 'repeat(auto-fill, minmax(280px, 1fr))';
-        galleryContainer.style.gap = '30px';
-        galleryContainer.style.width = '100%';
-      }
-      // Check aut  hentication status on page load
-      fetch("check_auth.php")
-        .then((response) => response.json())
-        .then((data) => {
-          isLoggedIn = data.isLoggedIn;
-          if (isLoggedIn) {
-            updateNavForLoggedIn(data.email);
-          }
-        });
-
-      function handleSignup() {
-        const formData = {
-          first_name: document.querySelector('.signup-form input[placeholder="First Name"]').value,
-          middle_name: document.querySelector('.signup-form input[placeholder="Middle Name"]').value,
-          last_name: document.querySelector('.signup-form input[placeholder="Last Name"]').value,
-          suffix: document.querySelector('.signup-form input[placeholder="Suffix"]').value,
-          email: document.querySelector('.signup-form input[placeholder="Email Address"]').value,
-          password: document.querySelector('.signup-form input[placeholder="Password"]').value,
-          confirm_password: document.querySelector('.signup-form input[placeholder="Confirm Password"]').value,
-          username: document.querySelector('.signup-form input[placeholder="Username (Optional)"]').value,
-          municipality: document.querySelector('.signup-form input[placeholder="Municipality"]').value,
-          province: document.querySelector('.signup-form input[placeholder="Province"]').value
-        };
-
-        fetch('register.php', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(formData)
-          })
-          .then(response => {
-            // First check if the response is JSON
-            const contentType = response.headers.get('content-type');
-            if (!contentType || !contentType.includes('application/json')) {
-              return response.text().then(text => {
-                throw new Error(`Expected JSON but got: ${text}`);
-              });
+    <!-- Core Interactive Client Scripts -->
+    <script>
+        // Shared Cart Helpers
+        function getCart() {
+            try {
+                return JSON.parse(localStorage.getItem('virtugallery_cart')) || [];
+            } catch (e) {
+                return [];
             }
-            return response.json();
-          })
-          .then(data => {
-            if (data.success) {
-              // Handle success
+        }
+
+        function saveCart(cart) {
+            localStorage.setItem('virtugallery_cart', JSON.stringify(cart));
+            updateCartBadges();
+        }
+
+        function updateCartBadges() {
+            const cart = getCart();
+            const totalCount = cart.length;
+            const badge = document.getElementById('nav-cart-badge');
+            const mobileBadge = document.getElementById('mobile-cart-badge');
+            
+            if (badge) {
+                badge.innerText = totalCount;
+                badge.classList.toggle('scale-0', totalCount === 0);
+            }
+            if (mobileBadge) {
+                mobileBadge.innerText = totalCount;
+            }
+        }
+
+        function addToCart(item) {
+            const cart = getCart();
+            const exists = cart.some(i => i.id === item.id);
+            if (exists) {
+                showToast(`"${item.title}" is already in your cart.`, 'info');
+                return;
+            }
+            cart.push(item);
+            saveCart(cart);
+            showToast(`Added "${item.title}" to cart!`);
+        }
+
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+
+            toastMsg.innerText = message;
+            toastIcon.innerHTML = type === 'success' 
+                ? '<i class="fas fa-check-circle text-lg text-emerald-400"></i>'
+                : '<i class="fas fa-info-circle text-lg text-amber-400"></i>';
+
+            toast.classList.remove('translate-y-24', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0');
+            }, 3000);
+        }
+
+        // Hero Showcase Switcher
+        function switchHeroPiece(imgSrc, title, artist, btn) {
+            const img = document.getElementById('hero-showcase-img');
+            const titleEl = document.getElementById('hero-showcase-title');
+            const artistEl = document.getElementById('hero-showcase-artist');
+
+            img.style.opacity = '0';
+            setTimeout(() => {
+                img.src = imgSrc;
+                titleEl.innerText = title;
+                artistEl.innerText = `by ${artist}`;
+                img.style.opacity = '1';
+            }, 200);
+
+            document.querySelectorAll('.hero-thumb').forEach(b => {
+                b.classList.remove('border-gallery-gold', 'scale-105');
+                b.classList.add('border-transparent', 'opacity-70');
+            });
+            btn.classList.add('border-gallery-gold', 'scale-105');
+            btn.classList.remove('border-transparent', 'opacity-70');
+        }
+
+        // Category Filter
+        function filterGallery(category, btn) {
+            document.querySelectorAll('.gallery-filter-btn').forEach(b => {
+                b.classList.remove('bg-gallery-800', 'text-white');
+                b.classList.add('bg-gallery-100', 'text-gray-700');
+            });
+            btn.classList.add('bg-gallery-800', 'text-white');
+            btn.classList.remove('bg-gallery-100', 'text-gray-700');
+
+            const cards = document.querySelectorAll('.gallery-card');
+            cards.forEach(card => {
+                const cardCat = card.getAttribute('data-category');
+                if (category === 'all' || cardCat === category) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        // Quick View Modal
+        function quickViewArtwork(art) {
+            document.getElementById('qv-image').src = art.image_path;
+            document.getElementById('qv-title').innerText = art.title;
+            document.getElementById('qv-artist').innerText = `by ${art.first_name} ${art.last_name}`;
+            document.getElementById('qv-category').innerText = art.category;
+            document.getElementById('qv-description').innerText = art.description || 'Authentic original artwork from the artist collection.';
+            document.getElementById('qv-price').innerText = art.price > 0 ? `₱${parseFloat(art.price).toLocaleString('en-US', {minimumFractionDigits: 2})}` : 'Not for sale';
+            
+            const cartBtn = document.getElementById('qv-cart-btn');
+            if (art.price > 0) {
+                cartBtn.style.display = 'block';
+                cartBtn.onclick = function() {
+                    addToCart({
+                        id: art.id,
+                        title: art.title,
+                        artist: `${art.first_name} ${art.last_name}`,
+                        price: parseFloat(art.price),
+                        image: art.image_path
+                    });
+                    closeQuickView();
+                };
             } else {
-              alert(data.errors.join('\n'));
+                cartBtn.style.display = 'none';
             }
-          })
-          .catch(error => {
-            console.error('Error:', error);
-            alert('Registration failed. Please check the console for details.');
-          });
-      }
 
-      // Navigation bar scroll effect
-      const navbar = document.getElementById("navbar");
-      window.addEventListener("scroll", function() {
-        if (window.scrollY > 50) {
-          navbar.classList.add("scrolled");
-        } else {
-          navbar.classList.remove("scrolled");
+            document.getElementById('quick-view-modal').classList.remove('hidden');
         }
-      });
 
-      // Mobile menu toggle
-      const mobileMenuBtn = document.querySelector(".mobile-menu-btn");
-      const navLinks = document.querySelector(".nav-links");
-      mobileMenuBtn.addEventListener("click", function() {
-        navLinks.classList.toggle("active");
-        const icon = mobileMenuBtn.querySelector("i");
-        if (navLinks.classList.contains("active")) {
-          icon.classList.remove("fa-bars");
-          icon.classList.add("fa-times");
-        } else {
-          icon.classList.remove("fa-times");
-          icon.classList.add("fa-bars");
+        function closeQuickView() {
+            document.getElementById('quick-view-modal').classList.add('hidden');
         }
-      });
 
-      // Close mobile menu when clicking a link
-      document.querySelectorAll(".nav-links a").forEach((link) => {
-        link.addEventListener("click", function() {
-          if (navLinks.classList.contains("active")) {
-            navLinks.classList.remove("active");
-            const icon = mobileMenuBtn.querySelector("i");
-            icon.classList.remove("fa-times");
-            icon.classList.add("fa-bars");
-          }
-        });
-      });
-
-      // Modal functions
-      function showModal(formType) {
-        const modal = document.getElementById("auth-modal");
-        modal.style.display = "flex";
-        if (formType === "signup") {
-          showSignup();
-        } else {
-          showLogin();
+        // Auth Modal Controls
+        function openModal(view = 'login') {
+            document.getElementById('auth-modal').classList.remove('hidden');
+            switchModalView(view);
         }
-      }
 
-      function closeModal() {
-        const modal = document.getElementById("auth-modal");
-        modal.style.display = "none";
-        redirectAfterLogin = null; // Reset redirect
-      }
+        function closeModal() {
+            document.getElementById('auth-modal').classList.add('hidden');
+        }
 
-      function showSignup() {
-        document.querySelector(".image-panel").classList.add("signup");
-        document.querySelector(".login-form").classList.remove("visible");
-        document.querySelector(".login-form").classList.add("hidden");
-        document.querySelector(".signup-form").classList.remove("hidden");
-        document.querySelector(".signup-form").classList.add("visible");
-      }
-
-      function showLogin() {
-        document.querySelector(".image-panel").classList.remove("signup");
-        document.querySelector(".signup-form").classList.remove("visible");
-        document.querySelector(".signup-form").classList.add("hidden");
-        document.querySelector(".login-form").classList.remove("hidden");
-        document.querySelector(".login-form").classList.add("visible");
-      }
-
-      // Handle login
-      function handleLogin() {
-        const emailOrUsername = document.querySelector(
-          '.login-form input[type="text"]'
-        ).value;
-        const password = document.querySelector(
-          '.login-form input[type="password"]'
-        ).value;
-        const rememberMe = document.querySelector("#remember-me").checked;
-
-        fetch("login.php", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              email_or_username: emailOrUsername,
-              password: password,
-              remember_me: rememberMe,
-            }),
-          })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              isLoggedIn = true;
-              updateNavForLoggedIn(data.email);
-              closeModal();
-              if (redirectAfterLogin) {
-                window.location.href = redirectAfterLogin;
-              } else {
-                window.location.href = "Pages/home.php";
-              }
+        function switchModalView(view) {
+            const loginView = document.getElementById('modal-login-view');
+            const regView = document.getElementById('modal-register-view');
+            if (view === 'login') {
+                loginView.classList.remove('hidden');
+                regView.classList.add('hidden');
             } else {
-              alert(data.errors.join("\n"));
+                loginView.classList.add('hidden');
+                regView.classList.remove('hidden');
             }
-          })
-          .catch((error) => {
-            alert("An error occurred during login: " + error.message);
-          });
-      }
-
-      // Handle signup
-      function handleSignup() {
-        const formData = {
-          first_name: document.querySelector(
-            '.signup-form input[placeholder="First Name"]'
-          ).value,
-          middle_name: document.querySelector(
-            '.signup-form input[placeholder="Middle Name"]'
-          ).value,
-          last_name: document.querySelector(
-            '.signup-form input[placeholder="Last Name"]'
-          ).value,
-          suffix: document.querySelector(
-            '.signup-form input[placeholder="Suffix"]'
-          ).value,
-          email: document.querySelector(
-            '.signup-form input[placeholder="Email Address"]'
-          ).value,
-          password: document.querySelector(
-            '.signup-form input[placeholder="Password"]'
-          ).value,
-          confirm_password: document.querySelector(
-            '.signup-form input[placeholder="Confirm Password"]'
-          ).value,
-          username: document.querySelector(
-            '.signup-form input[placeholder="Username (Optional)"]'
-          ).value,
-          municipality: document.querySelector(
-            '.signup-form input[placeholder="Municipality"]'
-          ).value,
-          province: document.querySelector(
-            '.signup-form input[placeholder="Province"]'
-          ).value,
-        };
-
-        fetch("register.php", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(formData),
-          })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              isLoggedIn = true;
-              updateNavForLoggedIn(formData.email);
-              closeModal();
-              if (redirectAfterLogin) {
-                window.location.href = redirectAfterLogin;
-              } else {
-                window.location.href = "Pages/home.php";
-              }
-            } else {
-              alert(data.errors.join("\n"));
-            }
-          })
-          .catch((error) => {
-            alert("An error occurred during signup: " + error.message);
-          });
-      }
-
-      // Update navigation bar for logged-in user
-      function updateNavForLoggedIn(email) {
-        const authButtons = document.querySelector(".auth-buttons");
-        authButtons.innerHTML = `
-        <span class="user-email">${email}</span>
-        <button class="logout-button" onclick="handleLogout()">Logout</button>
-    `;
-
-        // Add styles to the logout button to match your design
-        const logoutBtn = document.querySelector(".logout-button");
-        logoutBtn.style.padding = "8px 15px";
-        logoutBtn.style.marginLeft = "10px";
-        logoutBtn.style.color = "#333";
-        logoutBtn.style.fontWeight = "500";
-        logoutBtn.style.cursor = "pointer";
-        logoutBtn.style.background = "none";
-        logoutBtn.style.border = "none";
-        logoutBtn.style.fontFamily = "inherit";
-        logoutBtn.style.fontSize = "inherit";
-      }
-
-      // Handle logout
-      // Update the handleLogout function in your script
-      function handleLogout() {
-        fetch("logout.php")
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              // Redirect to index.php after successful logout
-              window.location.href = "index.php";
-            } else {
-              alert("Logout failed. Please try again.");
-            }
-          })
-          .catch((error) => {
-            console.error("Error during logout:", error);
-            alert("An error occurred during logout.");
-          });
-      }
-
-      // Expose functions to global scope for onclick
-      window.showModal = showModal;
-      window.closeModal = closeModal;
-      window.showSignup = showSignup;
-      window.showLogin = showLogin;
-      window.handleLogin = handleLogin;
-      window.handleSignup = handleSignup;
-      window.handleLogout = handleLogout;
-
-      // Handle Marketplace link click
-      let redirectAfterLogin = null;
-      let isLoggedIn = false;
-      const marketplaceLink = document.querySelector(".marketplace-link");
-      marketplaceLink.addEventListener("click", function(e) {
-        e.preventDefault();
-        if (isLoggedIn) {
-          window.location.href = "Pages/Marketplace.php";
-        } else {
-          redirectAfterLogin = "Pages/Marketplace.php";
-          showModal("login");
         }
-      });
 
-      // Scroll reveal animation
-      const animateOnScroll = function() {
-        const elements = document.querySelectorAll(
-          ".section-title, .hero-content, .scroll-prompt, .feature-card, .artwork-card, .testimonial-card, .view-all"
-        );
-        elements.forEach((element) => {
-          const elementPosition = element.getBoundingClientRect().top;
-          const screenPosition = window.innerHeight / 1.2;
-          if (elementPosition < screenPosition) {
-            element.classList.add("visible");
-          }
-        });
-      };
-
-      window.addEventListener("scroll", animateOnScroll);
-      animateOnScroll();
-
-      // Back to top button
-      const backToTopButton = document.querySelector(".back-to-top");
-      window.addEventListener("scroll", function() {
-        if (window.pageYOffset > 300) {
-          backToTopButton.classList.add("visible");
-        } else {
-          backToTopButton.classList.remove("visible");
-        }
-      });
-
-      backToTopButton.addEventListener("click", function(e) {
-        e.preventDefault();
-        window.scrollTo({
-          top: 0,
-          behavior: "smooth"
-        });
-      });
-
-      // Smooth scrolling for anchor links (excluding marketplace)
-      document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-        if (!anchor.classList.contains("marketplace-link")) {
-          anchor.addEventListener("click", function(e) {
+        // Login Handler
+        function submitLogin(e) {
             e.preventDefault();
-            const targetId = this.getAttribute("href");
-            if (targetId === "#") return;
-            const targetElement = document.querySelector(targetId);
-            if (targetElement) {
-              targetElement.scrollIntoView({
-                behavior: "smooth"
-              });
+            const identifier = document.getElementById('login-identifier').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            fetch('login.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email_or_username: identifier, password: password })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Welcome back! Redirecting...');
+                    setTimeout(() => {
+                        window.location.href = 'Pages/home.php';
+                    }, 800);
+                } else {
+                    alert((data.errors || ['Invalid credentials']).join('\n'));
+                }
+            })
+            .catch(() => alert('Network error during login. Please try again.'));
+        }
+
+        // Register Handler
+        function submitRegister(e) {
+            e.preventDefault();
+            const payload = {
+                first_name: document.getElementById('reg-fname').value.trim(),
+                last_name: document.getElementById('reg-lname').value.trim(),
+                username: document.getElementById('reg-username').value.trim(),
+                email: document.getElementById('reg-email').value.trim(),
+                municipality: document.getElementById('reg-municipality').value.trim(),
+                province: document.getElementById('reg-province').value.trim(),
+                password: document.getElementById('reg-password').value,
+                confirm_password: document.getElementById('reg-confirm-password').value
+            };
+
+            fetch('register.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    showToast('Account created successfully!');
+                    setTimeout(() => {
+                        window.location.href = 'Pages/home.php';
+                    }, 800);
+                } else {
+                    alert((data.errors || ['Registration failed']).join('\n'));
+                }
+            })
+            .catch(() => alert('Network error during registration.'));
+        }
+
+        function handleLogout() {
+            fetch('logout.php')
+                .then(res => res.json())
+                .then(() => {
+                    window.location.href = 'index.php';
+                })
+                .catch(() => {
+                    window.location.href = 'index.php';
+                });
+        }
+
+        // Mobile Drawer
+        const drawer = document.getElementById('mobile-drawer');
+        const backdrop = document.getElementById('mobile-drawer-backdrop');
+        const panel = document.getElementById('mobile-drawer-panel');
+
+        function openMobileDrawer() {
+            drawer.classList.remove('hidden');
+            setTimeout(() => {
+                backdrop.classList.remove('opacity-0');
+                panel.classList.remove('translate-x-full');
+            }, 10);
+        }
+
+        function closeMobileDrawer() {
+            backdrop.classList.add('opacity-0');
+            panel.classList.add('translate-x-full');
+            setTimeout(() => {
+                drawer.classList.add('hidden');
+            }, 300);
+        }
+
+        document.getElementById('mobile-menu-toggle')?.addEventListener('click', openMobileDrawer);
+        document.getElementById('mobile-drawer-close')?.addEventListener('click', closeMobileDrawer);
+        backdrop?.addEventListener('click', closeMobileDrawer);
+
+        // Header Scroll Shadow
+        window.addEventListener('scroll', () => {
+            const header = document.getElementById('main-header');
+            if (window.scrollY > 40) {
+                header.classList.add('backdrop-glass', 'shadow-sm', 'border-gray-200/50');
+            } else {
+                header.classList.remove('backdrop-glass', 'shadow-sm', 'border-gray-200/50');
             }
-          });
-        }
-      });
-
-      // Update form submit handlers
-      document
-        .querySelector('.login-form button[type="submit"]')
-        .addEventListener("click", handleLogin);
-      document
-        .querySelector('.signup-form button[type="submit"]')
-        .addEventListener("click", handleSignup);
-
-      // Carousel logic (unchanged from original)
-      const images = [{
-          url: "https://images.unsplash.com/photo-1579783902614-a3fb3927b6a5?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-        },
-        {
-          url: "https://images.unsplash.com/photo-1578926375605-eaf7559b1458?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-        },
-        {
-          url: "https://images.unsplash.com/photo-1531913764164-f85c52e6e654?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-        },
-        {
-          url: "https://images.unsplash.com/photo-1558403194-611308249627?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-        },
-        {
-          url: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80",
-        },
-      ];
-
-      const carouselInner = document.querySelector(".carousel-inner");
-      const indicatorsContainer = document.querySelector(
-        ".carousel-indicators"
-      );
-      let currentIndex = 0;
-      let autoSlideInterval;
-      const slideIntervalTime = 2000;
-
-      images.forEach((image, index) => {
-        const card = document.createElement("div");
-        card.className = "carousel-card";
-        card.innerHTML = `<img src="${image.url}">`;
-        carouselInner.appendChild(card);
-
-        const indicator = document.createElement("div");
-        indicator.className = "indicator";
-        if (index === 0) indicator.classList.add("active");
-        indicator.addEventListener("click", () => goToSlide(index));
-        indicatorsContainer.appendChild(indicator);
-      });
-
-      function updateCarousel() {
-        carouselInner.style.transform = `translateX(-${currentIndex * 100}%)`;
-        document
-          .querySelectorAll(".indicator")
-          .forEach((indicator, index) => {
-            indicator.classList.toggle("active", index === currentIndex);
-          });
-      }
-
-      function nextSlide() {
-        currentIndex = (currentIndex + 1) % images.length;
-        updateCarousel();
-        resetAutoSlide();
-      }
-
-      function prevSlide() {
-        currentIndex = (currentIndex - 1 + images.length) % images.length;
-        updateCarousel();
-        resetAutoSlide();
-      }
-
-      function goToSlide(index) {
-        currentIndex = index;
-        updateCarousel();
-        resetAutoSlide();
-      }
-
-      function startAutoSlide() {
-        autoSlideInterval = setInterval(nextSlide, slideIntervalTime);
-      }
-
-      function resetAutoSlide() {
-        clearInterval(autoSlideInterval);
-        startAutoSlide();
-      }
-
-      startAutoSlide();
-
-      carouselInner.addEventListener("mouseenter", () =>
-        clearInterval(autoSlideInterval)
-      );
-      carouselInner.addEventListener("mouseleave", () => startAutoSlide());
-    });
-
-    document.getElementById('signup-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = {
-        first_name: document.getElementById('first_name').value,
-        middle_name: document.getElementById('middle_name').value,
-        last_name: document.getElementById('last_name').value,
-        suffix: document.getElementById('suffix').value,
-        email: document.getElementById('email').value,
-        password: document.getElementById('password').value,
-        confirm_password: document.getElementById('confirm_password').value,
-        username: document.getElementById('username').value,
-        municipality: document.getElementById('municipality').value,
-        province: document.getElementById('province').value,
-      };
-
-      try {
-        const response = await fetch('register.php', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(formData),
-        });
-        const data = await response.json();
-        if (data.success) {
-          alert(data.message);
-        } else {
-          alert('Signup failed: ' + data.errors.join(', ')); // Error: data.errors is undefined
-        }
-      } catch (error) {
-        console.error('Error during signup:', error);
-        alert('An error occurred during signup: ' + error.message);
-      }
-    });
-
-    // Gallery functionality
-    document.addEventListener('DOMContentLoaded', function() {
-      // Filter functionality
-      const categoryFilter = document.getElementById('category-filter');
-      const artworkCards = document.querySelectorAll('.artwork-card');
-
-      categoryFilter.addEventListener('change', function() {
-        const selectedCategory = this.value;
-
-        artworkCards.forEach(card => {
-          if (selectedCategory === 'all' || card.dataset.category === selectedCategory) {
-            card.style.display = 'block';
-          } else {
-            card.style.display = 'none';
-          }
-        });
-      });
-
-      // Sort functionality
-      const sortBy = document.getElementById('sort-by');
-
-      sortBy.addEventListener('change', function() {
-        const sortValue = this.value;
-        const grid = document.querySelector('.artworks-grid');
-        const cards = Array.from(artworkCards);
-
-        cards.sort((a, b) => {
-          const priceA = parseFloat(a.dataset.price);
-          const priceB = parseFloat(b.dataset.price);
-
-          switch (sortValue) {
-            case 'price-low':
-              return priceA - priceB;
-            case 'price-high':
-              return priceB - priceA;
-            case 'newest':
-              // Assuming newer items have higher prices for this demo
-              return priceB - priceA;
-            case 'popular':
-              // Assuming more popular items have higher ratings
-              const ratingA = parseFloat(a.querySelector('.rating').textContent.split(' ')[1]);
-              const ratingB = parseFloat(b.querySelector('.rating').textContent.split(' ')[1]);
-              return ratingB - ratingA;
-            default:
-              return 0;
-          }
         });
 
-        // Re-append sorted cards
-        cards.forEach(card => grid.appendChild(card));
-      });
-
-      // Quick view functionality
-      const quickViewButtons = document.querySelectorAll('.quick-view');
-      quickViewButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          // In a real implementation, this would show a modal with more details
-          alert('Quick view feature would show more details about this artwork');
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCartBadges();
         });
-      });
-
-      // Wishlist functionality
-      const wishlistButtons = document.querySelectorAll('.wishlist-btn');
-      wishlistButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-          e.stopPropagation();
-          const icon = this.querySelector('i');
-          icon.classList.toggle('far');
-          icon.classList.toggle('fas');
-          icon.classList.toggle('active');
-
-          if (icon.classList.contains('active')) {
-            this.setAttribute('title', 'Remove from wishlist');
-          } else {
-            this.setAttribute('title', 'Add to wishlist');
-          }
-        });
-      });
-
-      // Zoom functionality
-      const zoomButtons = document.querySelectorAll('.zoom-btn');
-      zoomButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-          e.stopPropagation();
-          const imageUrl = this.closest('.artwork-card').querySelector('img').src;
-          // In a real implementation, this would show a lightbox with the zoomed image
-          alert('Zoom feature would show a larger version of the image');
-        });
-      });
-
-      // Pagination
-      const pageButtons = document.querySelectorAll('.page-btn');
-      pageButtons.forEach(button => {
-        button.addEventListener('click', function() {
-          pageButtons.forEach(btn => btn.classList.remove('active'));
-          this.classList.add('active');
-          // In a real implementation, this would load the corresponding page
-        });
-      });
-
-      // Load more button
-      const loadMoreBtn = document.querySelector('.load-more-btn');
-      loadMoreBtn.addEventListener('click', function() {
-        // In a real implementation, this would load more artworks
-        alert('Load more functionality would fetch and display additional artworks');
-      });
-    });
-  </script>
+    </script>
 </body>
 
 </html>

@@ -1,1169 +1,304 @@
-﻿<!DOCTYPE html>
+<?php
+session_start();
+require_once __DIR__ . '/../db_connect.php';
+
+$current_user_id = $_SESSION['user_id'] ?? 0;
+$isLoggedIn = isset($_SESSION['user_id']);
+
+try {
+    // 1. Top Artists
+    $artistsStmt = $pdo->prepare("
+        SELECT 
+            u.id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            u.profile_picture,
+            u.municipality,
+            u.province,
+            COALESCE(a.stage_name, u.first_name || ' ' || u.last_name) AS stage_name,
+            COALESCE(a.art_style, 'Visual Arts') AS art_style,
+            COALESCE(a.verified, 0) AS verified,
+            (SELECT COUNT(*) FROM posts p WHERE p.user_id = u.id) AS artworks_count,
+            (SELECT COUNT(*) FROM follows f WHERE f.followed_id = u.id) AS followers_count,
+            EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = ? AND f.followed_id = u.id) AS is_following
+        FROM users u
+        LEFT JOIN artists a ON u.id = a.user_id
+        ORDER BY followers_count DESC, artworks_count DESC
+        LIMIT 10
+    ");
+    $artistsStmt->execute([$current_user_id]);
+    $topArtists = $artistsStmt->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Top Artworks
+    $artworksStmt = $pdo->query("
+        SELECT 
+            p.id,
+            p.title,
+            p.category,
+            p.price,
+            p.image_path,
+            p.created_at,
+            u.id AS artist_id,
+            u.username,
+            u.first_name,
+            u.last_name,
+            (SELECT COUNT(*) FROM likes l WHERE l.post_id = p.id) AS likes_count,
+            (SELECT COUNT(*) FROM comments c WHERE c.post_id = p.id) AS comments_count
+        FROM posts p
+        JOIN users u ON p.user_id = u.id
+        ORDER BY likes_count DESC, comments_count DESC
+        LIMIT 10
+    ");
+    $topArtworks = $artworksStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $topArtists = [];
+    $topArtworks = [];
+}
+?>
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Virtu Gallery</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Artist & Artwork Rankings — VirtuGallery</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Montserrat:wght@300;400;600&family=Roboto:wght@400;500;700&display=swap"
-          rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        gallery: {
+                            50: '#f7f8f6',
+                            100: '#edf0eb',
+                            200: '#d7ded3',
+                            500: '#485e43',
+                            700: '#2b3b28',
+                            800: '#202b1d',
+                            900: '#172015',
+                            gold: '#c5a059'
+                        }
+                    },
+                    fontFamily: {
+                        serif: ['"Playfair Display"', 'serif'],
+                        sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        :root {
-            --primary-color: #202b1d;
-            --secondary-color: #1a2318;
-            --text-color: #333;
-            --accent-color: #ecd5a6;
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html,
-        body {
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Montserrat', sans-serif;
-            color: #333;
-            line-height: 1.6;
-            background-color: #f9f9f9;
-        }
-
-        h1,
-        h2,
-        h3 {
-            font-family: 'Playfair Display', serif;
-            font-weight: 700;
-        }
-
-        a {
-            text-decoration: none;
-            color: inherit;
-        }
-
-        /* Navigation Bar Styles */
-        nav {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            background-color: white;
-            padding: 15px 5%;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            z-index: 1000;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.3s ease, padding 0.3s ease;
-            height: 90px;
-        }
-
-        .nav-left,
-        .nav-right {
-            display: flex;
-            align-items: center;
-        }
-
-        nav.scrolled {
-            background-color: var(--primary-color);
-            padding: 10px 5%;
-        }
-
-            nav.scrolled .logo,
-            nav.scrolled .nav-links a,
-            nav.scrolled .profile-icon {
-                color: white;
-            }
-
-                nav.scrolled .nav-links a:hover {
-                    color: #ecd5a6;
-                }
-
-                nav.scrolled .profile-icon:hover {
-                    box-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
-                }
-
-            nav.scrolled .profile-menu a:hover {
-                color: #ecd5a6;
-            }
-
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            color: #202b1d;
-            font-weight: bold;
-            position: absolute;
-            left: 50%;
-            transform: translateX(-50%);
-            transition: color 0.3s ease;
-        }
-
-        nav.scrolled .logo {
-            color: white;
-        }
-
-        .nav-links {
-            display: flex;
-            list-style: none;
-        }
-
-            .nav-links li {
-                margin-left: 20px;
-                position: relative;
-            }
-
-            .nav-links a {
-                color: #333;
-                font-weight: 500;
-                transition: color 0.3s;
-                position: relative;
-            }
-
-                .nav-links a:hover {
-                    color: #202b1d;
-                }
-
-                .nav-links a::after {
-                    content: '';
-                    position: absolute;
-                    bottom: -5px;
-                    left: 0;
-                    width: 0;
-                    height: 2px;
-                    background-color: #000000;
-                    transition: width 0.3s;
-                }
-
-                .nav-links a:hover::after {
-                    width: 100%;
-                }
-
-        nav.scrolled .nav-links a::after {
-            background-color: #ecd5a6;
-        }
-
-        .profile-container {
-            position: relative;
-            margin-left: 10px;
-        }
-
-        .profile-icon {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            background-color: #202b1d;
-            color: white;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-            .profile-icon:hover {
-                transform: scale(1.1);
-                box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-            }
-
-        .profile-menu {
-            position: absolute;
-            top: 50px;
-            right: 0;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-10px);
-            transition: opacity 0.3s ease, transform 0.3s ease, visibility 0.3s;
-            z-index: 1000;
-            min-width: 180px;
-        }
-
-            .profile-container:hover .profile-menu,
-            .profile-menu.active {
-                opacity: 1;
-                visibility: visible;
-                transform: translateY(0);
-            }
-
-            .profile-menu a {
-                display: block;
-                padding: 12px 20px;
-                color: #333;
-                font-weight: 500;
-                transition: background-color 0.3s, color 0.3s;
-            }
-
-                .profile-menu a:hover {
-                    background-color: #f9f9f9;
-                    color: #202b1d;
-                }
-
-        .mobile-menu-btn {
-            display: none;
-            background: none;
-            border: none;
-            color: #333;
-            font-size: 1.5rem;
-            cursor: pointer;
-            transition: color 0.3s;
-        }
-
-        nav.scrolled .mobile-menu-btn {
-            color: white;
-        }
-
-        @media (max-width: 768px) {
-            nav {
-                padding: 10px 5%;
-            }
-
-            .logo {
-                font-size: 1.5rem;
-            }
-
-            .nav-links {
-                position: fixed;
-                top: 60px;
-                left: 0;
-                width: 100%;
-                background-color: #202b1d;
-                flex-direction: column;
-                align-items: center;
-                padding: 20px 0;
-                transform: translateY(-100%);
-                opacity: 0;
-                transition: all 0.3s;
-                pointer-events: none;
-            }
-
-                .nav-links.active {
-                    transform: translateY(0);
-                    opacity: 1;
-                    pointer-events: all;
-                }
-
-                .nav-links li {
-                    margin: 15px 0;
-                }
-
-                .nav-links a {
-                    color: white;
-                }
-
-                    .nav-links a:hover {
-                        color: #ecd5a6;
-                    }
-
-            .mobile-menu-btn {
-                display: block;
-            }
-
-            .profile-menu {
-                top: 60px;
-                right: 5%;
-                min-width: 150px;
-            }
-        }
-
-        /* Main Content Styles */
-        .main-content {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .content-wrapper {
-            flex: 1;
-            padding: 90px 5% 0;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
-            background-color: #f9f9f9;
-            transition: background-color 0.5s ease;
-            overflow: hidden;
-            height: calc(100vh - 90px);
-        }
-
-        .parent {
-            flex: 1;
-            gap: 30px;
-            height: 100%;
-            overflow: hidden;
-        }
-
-        .content-container {
-            display: grid;
-            grid-template-columns: 20% 80%;
-            grid-template-rows: auto 1fr;
-            gap: 15px;
-            height: 100%;
-            width: 100%;
-            box-sizing: border-box;
-            padding: 20px;
-            overflow: hidden;
-        }
-
-        .searchtab,
-        .sidebartab,
-        .ranking-container {
-            border-radius: 8px;
-            padding: 15px;
-            transition: all 0.3s ease;
-            background-color: white;
-        }
-
-        .searchtab {
-            grid-column: 1 / -1;
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 15px 25px;
-            height: auto;
-            min-height: 80px;
-            display: flex;
-            align-items: center;
-        }
-
-        .sidebartab {
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-        }
-
-        .sidebarbuttons {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            padding: 10px;
-            height: 100%;
-            overflow-y: auto;
-        }
-
-            .sidebarbuttons a {
-                background-color: white;
-                border: 1px solid #e0e0e0;
-                border-radius: 8px;
-                padding: 12px 15px;
-                font-family: 'Montserrat', sans-serif;
-                font-weight: 500;
-                color: #333;
-                cursor: pointer;
-                transition: all 0.3s ease;
-                display: flex;
-                align-items: center;
-                gap: 12px;
-                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-                text-decoration: none;
-            }
-
-                .sidebarbuttons a:hover {
-                    background-color: #f5f5f5;
-                    transform: translateY(-2px);
-                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-                    border-color: #202b1d;
-                }
-
-                .sidebarbuttons a i {
-                    font-size: 1.1rem;
-                    color: #202b1d;
-                    width: 24px;
-                    text-align: center;
-                }
-
-                .sidebarbuttons a.active {
-                    background-color: var(--primary-color);
-                    color: white;
-                }
-
-                    .sidebarbuttons a.active i {
-                        color: white;
-                    }
-
-        .AddWork {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            padding: 15px;
-            margin-bottom: 10px;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
-        }
-
-            .AddWork:hover {
-                background-color: #f5f5f5;
-                transform: translateY(-2px);
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
-                border-color: #202b1d;
-            }
-
-        .add-work-container {
-            border: 2px dashed #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100%;
-            transition: all 0.3s ease;
-            background-color: rgba(255, 255, 255, 0.7);
-        }
-
-            .add-work-container:hover {
-                border-color: #202b1d;
-                background-color: rgba(255, 255, 255, 0.9);
-            }
-
-        .add-work-placeholder {
-            color: #666;
-            font-size: 1rem;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .add-image-btn {
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            font-size: 1.2rem;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.3s ease;
-        }
-
-            .add-image-btn:hover {
-                background-color: #1a2318;
-                transform: scale(1.1);
-            }
-
-        /* Ranking Container Styles */
-        .ranking-container {
-            background-color: white;
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
-            padding: 20px;
-            overflow-y: auto;
-            height: 100%;
-            scrollbar-width: thin;
-            scrollbar-color: #888 #f1f1f1;
-        }
-
-        .ranking-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
-
-        .ranking-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.5rem;
-            color: #202b1d;
-        }
-
-        .ranking-filter {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        .filter-dropdown {
-            position: relative;
-            display: inline-block;
-        }
-
-        .filter-dropdown-btn {
-            padding: 8px 15px;
-            background-color: #f5f5f5;
-            border: 1px solid #e0e0e0;
-            border-radius: 6px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            color: #333;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-            .filter-dropdown-btn:hover {
-                background-color: #e0e0e0;
-            }
-
-            .filter-dropdown-btn i {
-                transition: transform 0.3s;
-            }
-
-            .filter-dropdown-btn.active i {
-                transform: rotate(180deg);
-            }
-
-        .filter-dropdown-content {
-            display: none;
-            position: absolute;
-            right: 0;
-            background-color: white;
-            min-width: 160px;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.1);
-            border-radius: 6px;
-            z-index: 1;
-            padding: 8px 0;
-            border: 1px solid #e0e0e0;
-        }
-
-            .filter-dropdown-content a {
-                color: #333;
-                padding: 8px 16px;
-                text-decoration: none;
-                display: block;
-                font-size: 0.9rem;
-                transition: background-color 0.2s;
-            }
-
-                .filter-dropdown-content a:hover {
-                    background-color: #f5f5f5;
-                }
-
-                .filter-dropdown-content a.active {
-                    background-color: #202b1d;
-                    color: white;
-                }
-
-        .ranking-list {
-            display: none;
-        }
-
-            .ranking-list.active {
-                display: block;
-            }
-
-        .ranking-item {
-            display: flex;
-            align-items: center;
-            padding: 12px 0;
-            border-bottom: 1px solid #eee;
-            transition: background-color 0.2s;
-        }
-
-            .ranking-item:hover {
-                background-color: #f9f9f9;
-            }
-
-        .ranking-position {
-            width: 40px;
-            font-weight: 600;
-            font-size: 1.1rem;
-            color: #202b1d;
-            text-align: center;
-        }
-
-        .ranking-image {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-right: 12px;
-        }
-
-        .artist-avatar {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            margin-right: 12px;
-        }
-
-        .ranking-content {
-            flex-grow: 1;
-        }
-
-        .ranking-title-text {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: #333;
-        }
-
-        .ranking-artist {
-            font-size: 0.8rem;
-            color: #666;
-        }
-
-        .ranking-stats {
-            display: flex;
-            gap: 15px;
-            font-size: 0.8rem;
-            color: #888;
-        }
-
-        .follow-btn {
-            padding: 6px 15px;
-            background-color: #202b1d;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-left: auto;
-        }
-
-            .follow-btn:hover {
-                background-color: #1a2318;
-                transform: translateY(-1px);
-            }
-
-            .follow-btn.following {
-                background-color: #f5f5f5;
-                color: #202b1d;
-                border: 1px solid #e0e0e0;
-            }
-
-        .ranking-container::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .ranking-container::-webkit-scrollbar-track {
-            background: #f1f1f1;
-            border-radius: 4px;
-        }
-
-        .ranking-container::-webkit-scrollbar-thumb {
-            background: #888;
-            border-radius: 4px;
-        }
-
-            .ranking-container::-webkit-scrollbar-thumb:hover {
-                background: #555;
-            }
-
-        .search-tabs-container {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            width: 100%;
-            gap: 30px;
-        }
-
-        .search-bar {
-            display: flex;
-            flex: 1;
-            min-width: 200px;
-            max-width: 500px;
-            border-radius: 24px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-            border: 1px solid #e0e0e0;
-        }
-
-            .search-bar input {
-                flex: 1;
-                padding: 10px 20px;
-                border: none;
-                font-family: 'Montserrat', sans-serif;
-                font-size: 0.95rem;
-                background-color: white;
-                color: #333;
-            }
-
-                .search-bar input::placeholder {
-                    color: #aaa;
-                }
-
-        .search-button {
-            padding: 0 15px;
-            border: none;
-            background-color: #202b1d;
-            color: white;
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            transition: background-color 0.3s;
-        }
-
-            .search-button:hover {
-                background-color: #1a2318;
-            }
-
-        .nav-tabs {
-            display: flex;
-            background-color: rgba(32, 43, 29, 0.1);
-            border-radius: 8px;
-            padding: 2px;
-        }
-
-        .tab-button {
-            padding: 8px 25px;
-            background: none;
-            border: none;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.95rem;
-            color: #333;
-            cursor: pointer;
-            border-radius: 6px;
-            transition: all 0.3s ease;
-        }
-
-            .tab-button.active {
-                background-color: #202b1d;
-                color: white;
-                font-weight: 500;
-            }
-
-            .tab-button:hover:not(.active) {
-                background-color: rgba(32, 43, 29, 0.2);
-            }
-
-        /* Toast Notification */
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: #333;
-            color: white;
-            padding: 12px 24px;
-            border-radius: 4px;
-            z-index: 1000;
-            opacity: 0;
-            transition: opacity 0.3s ease;
-        }
-
-            .toast.show {
-                opacity: 1;
-            }
-
-        /* Overlay Backdrop */
-        .overlay-backdrop {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            z-index: 1999;
-            opacity: 0;
-            visibility: hidden;
-            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), visibility 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-            .overlay-backdrop.active {
-                opacity: 1;
-                visibility: visible;
-            }
-
-        .highlight {
-            background-color: rgba(236, 213, 166, 0.2);
-            border-left: 3px solid var(--accent-color);
+        .backdrop-glass {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
         }
     </style>
 </head>
 
-<body>
-    <div class="main-content">
-        <nav id="navbar">
-            <div class="nav-left">
-                <ul class="nav-links">
-                    <li><a href="../index.php#hero">Home</a></li>
-                    <li><a href="../index.php#features">Features</a></li>
-                    <li><a href="../index.php#gallery">Gallery</a></li>
-                    <li><a href="Marketplace.php" class="marketplace-link">Marketplace</a></li>
-                    <li><a href="../index.php#about">About Us</a></li>
-                </ul>
-            </div>
-            <div class="logo">VirtuGallery</div>
-            <div class="nav-right">
-                <div class="profile-container">
-                    <div class="profile-icon">
-                        <i class="fas fa-user"></i>
-                    </div>
-                    <div class="profile-menu">
-                        <a href="UserProfilePage.php">Profile</a>
-                        <a href="UserProfilePage.php">My Collection</a>
-                        <a href="#">Logout</a>
-                    </div>
+<body class="bg-gallery-50 text-gray-800 font-sans antialiased min-h-screen flex flex-col justify-between">
+
+    <!-- Navbar -->
+    <nav class="fixed top-0 left-0 right-0 z-40 backdrop-glass border-b border-gray-200/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-20">
+                <a href="../index.php" class="flex items-center space-x-3">
+                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md">V</span>
+                    <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
+                </a>
+                <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">
+                    <a href="../index.php" class="hover:text-gallery-800">Home</a>
+                    <a href="Marketplace.php" class="hover:text-gallery-800">Marketplace</a>
+                    <a href="ranking.php" class="text-gallery-800 font-bold border-b-2 border-gallery-800 pb-1">Rankings</a>
+                    <?php if ($isLoggedIn): ?>
+                        <a href="home.php" class="hover:text-gallery-800">Community Feed</a>
+                        <a href="notifications.php" class="hover:text-gallery-800">Notifications</a>
+                    <?php endif; ?>
                 </div>
-                <button class="mobile-menu-btn">
-                    <i class="fas fa-bars"></i>
-                </button>
-            </div>
-        </nav>
-
-        <div class="content-wrapper">
-            <div class="parent">
-                <div class="content-container">
-                    <div class="searchtab">
-                        <div class="search-tabs-container">
-                            <div class="search-bar">
-                                <input type="text" placeholder="Search rankings...">
-                                <button class="search-button">Search</button>
-                            </div>
-                            <div class="filter-dropdown">
-                                <button class="filter-dropdown-btn" id="filter-dropdown-btn">
-                                    Show All <i class="fas fa-chevron-down"></i>
-                                </button>
-                                <div class="filter-dropdown-content" id="filter-dropdown-content">
-                                    <a href="#" class="active" data-filter-type="all">Show All</a>
-                                    <a href="#" data-filter-type="artists">Artists</a>
-                                    <a href="#" data-filter-type="artworks">Artworks</a>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="sidebartab">
-                        <div class="AddWork">
-                            <div class="add-work-container">
-                                <div class="add-work-placeholder">Add Your Artwork</div>
-                                <button class="add-image-btn">+</button>
-                                <div class="artwork-details" style="display: none;">
-                                    <input type="text" class="artwork-title" placeholder="Artwork Title" required>
-                                    <input type="text" class="artwork-artist" placeholder="Artwork Artist" required>
-                                    <button class="submit-artwork-btn">Add Work</button>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="sidebarbuttons">
-                            <a href="home.php" class="Home">
-                                <i class="fas fa-home"></i>
-                                <span>Home</span>
-                            </a>
-                            <a href="notifications.php" class="Notifications">
-                                <i class="fas fa-bell"></i>
-                                <span>Notifications</span>
-                            </a>
-                            <a href="ranking.php" class="Ranking active">
-                                <i class="fas fa-trophy"></i>
-                                <span>Ranking</span>
-                            </a>
-                            <a href="settings.php" class="Settings">
-                                <i class="fas fa-cog"></i>
-                                <span>Settings</span>
-                            </a>
-                        </div>
-                    </div>
-                    <div class="ranking-container" id="ranking-container">
-                        <div class="ranking-header">
-                            <h2 class="ranking-title">Top Rankings</h2>
-                        </div>
-
-                        <!-- Artists Ranking List -->
-                        <div class="ranking-list" id="artists-ranking">
-                            <h3 class="ranking-subtitle">Top Artists</h3>
-                            <div class="ranking-item highlight">
-                                <div class="ranking-position">1</div>
-                                <img src="../images/babaengghibli.png" class="artist-avatar" alt="Artist">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">Studio Ghibli</div>
-                                    <div class="ranking-artist">@studio_ghibli</div>
-                                    <div class="ranking-stats">
-                                        <span>12.5K followers</span>
-                                        <span>256 artworks</span>
-                                    </div>
-                                </div>
-                                <button class="follow-btn following">Following</button>
-                            </div>
-                            <div class="ranking-item">
-                                <div class="ranking-position">2</div>
-                                <img src="../images/mgamuning.jpg" class="artist-avatar" alt="Artist">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">Van Gogh</div>
-                                    <div class="ranking-artist">@vangogh</div>
-                                    <div class="ranking-stats">
-                                        <span>10.2K followers</span>
-                                        <span>189 artworks</span>
-                                    </div>
-                                </div>
-                                <button class="follow-btn">Follow</button>
-                            </div>
-                            <div class="ranking-item">
-                                <div class="ranking-position">3</div>
-                                <img src="../images/lalalalal.jpg" class="artist-avatar" alt="Artist">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">Picasso</div>
-                                    <div class="ranking-artist">@picasso</div>
-                                    <div class="ranking-stats">
-                                        <span>9.8K followers</span>
-                                        <span>312 artworks</span>
-                                    </div>
-                                </div>
-                                <button class="follow-btn">Follow</button>
-                            </div>
-                        </div>
-
-                        <!-- Artworks Ranking List -->
-                        <div class="ranking-list" id="artworks-ranking">
-                            <h3 class="ranking-subtitle">Top Artworks</h3>
-                            <div class="ranking-item highlight">
-                                <div class="ranking-position">1</div>
-                                <img src="../images/easaportrait.png" class="ranking-image" alt="Artwork">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">Starry Night</div>
-                                    <div class="ranking-artist">@vangogh</div>
-                                    <div class="ranking-stats">
-                                        <span>15.7K likes</span>
-                                        <span>892 comments</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ranking-item">
-                                <div class="ranking-position">2</div>
-                                <img src="../images/mgamuning.jpg" class="ranking-image" alt="Artwork">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">The Persistence of Memory</div>
-                                    <div class="ranking-artist">@dali</div>
-                                    <div class="ranking-stats">
-                                        <span>14.3K likes</span>
-                                        <span>765 comments</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="ranking-item">
-                                <div class="ranking-position">3</div>
-                                <img src="../images/lalalalal.jpg" class="ranking-image" alt="Artwork">
-                                <div class="ranking-content">
-                                    <div class="ranking-title-text">Girl with a Pearl Earring</div>
-                                    <div class="ranking-artist">@vermeer</div>
-                                    <div class="ranking-stats">
-                                        <span>12.9K likes</span>
-                                        <span>654 comments</span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+                <div class="flex items-center space-x-4">
+                    <a href="cart.html" class="p-2 text-gray-700 hover:text-gallery-800">
+                        <i class="fas fa-shopping-bag text-xl"></i>
+                    </a>
+                    <?php if ($isLoggedIn): ?>
+                        <a href="UserProfilePage.php" class="text-sm font-medium text-gallery-800 bg-gallery-100 hover:bg-gallery-200 px-4 py-2 rounded-full">Profile</a>
+                    <?php else: ?>
+                        <a href="../index.php" class="text-sm font-medium text-gallery-800">Sign In</a>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
-        <div class="overlay-backdrop" id="overlayBackdrop"></div>
-        <div class="toast" id="toast"></div>
-    </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="pt-28 pb-20 flex-grow max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        
+        <!-- Header -->
+        <div class="text-center max-w-xl mx-auto mb-10">
+            <span class="text-xs uppercase font-bold tracking-widest text-gallery-gold">Community Leaderboards</span>
+            <h1 class="font-serif text-3xl sm:text-4xl font-bold text-gallery-900 mt-1">Hall of Creators & Works</h1>
+            <p class="text-sm text-gray-500 mt-2 font-light">Celebrating the most celebrated living artists and beloved artworks on VirtuGallery.</p>
+            
+            <!-- Switch Tabs -->
+            <div class="inline-flex p-1.5 rounded-2xl bg-white border border-gray-200 mt-6 shadow-sm">
+                <button id="tab-artists-btn" onclick="switchRankingTab('artists')" class="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all bg-gallery-800 text-white shadow-sm">
+                    <i class="fas fa-users mr-1.5"></i> Top Artists
+                </button>
+                <button id="tab-artworks-btn" onclick="switchRankingTab('artworks')" class="px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:text-gallery-800 transition-all">
+                    <i class="fas fa-paint-brush mr-1.5"></i> Trending Artworks
+                </button>
+            </div>
+        </div>
+
+        <!-- 1. Top Artists Leaderboard List -->
+        <div id="section-artists" class="space-y-4">
+            <?php foreach ($topArtists as $index => $artist): ?>
+                <?php 
+                    $pos = $index + 1;
+                    $badgeBg = $pos === 1 ? 'bg-amber-400 text-amber-950 ring-4 ring-amber-100' : 
+                              ($pos === 2 ? 'bg-slate-300 text-slate-800 ring-4 ring-slate-100' : 
+                              ($pos === 3 ? 'bg-amber-700 text-amber-100 ring-4 ring-amber-50' : 'bg-gray-100 text-gray-600'));
+                ?>
+                <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4 min-w-0">
+                        <!-- Rank Position -->
+                        <span class="w-8 h-8 rounded-full font-serif font-bold text-sm flex items-center justify-center flex-shrink-0 <?= $badgeBg ?>">
+                            <?= $pos ?>
+                        </span>
+
+                        <!-- Avatar -->
+                        <div class="w-12 h-12 sm:w-14 sm:h-14 rounded-full overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                            <img src="<?= !empty($artist['profile_picture']) ? (strpos($artist['profile_picture'], 'profile_image/') === 0 ? $artist['profile_picture'] : $artist['profile_picture']) : 'profile_image/default.jpg' ?>" 
+                                 alt="<?= htmlspecialchars($artist['first_name']) ?>" 
+                                 class="w-full h-full object-cover">
+                        </div>
+
+                        <!-- Artist Info -->
+                        <div class="min-w-0">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-serif text-base sm:text-lg font-bold text-gallery-900 truncate">
+                                    <?= htmlspecialchars($artist['stage_name']) ?>
+                                </h3>
+                                <?php if ($artist['verified']): ?>
+                                    <i class="fas fa-check-circle text-gallery-gold text-xs" title="Verified Creator"></i>
+                                <?php endif; ?>
+                            </div>
+                            <p class="text-xs text-gray-400">@<?= htmlspecialchars($artist['username']) ?> • <span class="text-gray-600"><?= htmlspecialchars($artist['art_style']) ?></span></p>
+                            <p class="text-[11px] text-gray-500 mt-1">
+                                <span class="font-bold text-gallery-900"><?= $artist['followers_count'] ?></span> followers • 
+                                <span class="font-bold text-gallery-900"><?= $artist['artworks_count'] ?></span> published pieces
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Follow Button -->
+                    <?php if ($isLoggedIn && $artist['id'] != $current_user_id): ?>
+                        <button onclick="toggleFollow(<?= (int)$artist['id'] ?>, this)" 
+                                class="follow-action-btn flex-shrink-0 px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold transition-all <?= $artist['is_following'] ? 'bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600' : 'bg-gallery-800 text-white hover:bg-gallery-900' ?>">
+                            <?= $artist['is_following'] ? 'Following' : 'Follow' ?>
+                        </button>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- 2. Trending Artworks Leaderboard List -->
+        <div id="section-artworks" class="space-y-4 hidden">
+            <?php foreach ($topArtworks as $index => $art): ?>
+                <?php 
+                    $pos = $index + 1;
+                    $badgeBg = $pos === 1 ? 'bg-amber-400 text-amber-950 ring-4 ring-amber-100' : 
+                              ($pos === 2 ? 'bg-slate-300 text-slate-800 ring-4 ring-slate-100' : 
+                              ($pos === 3 ? 'bg-amber-700 text-amber-100 ring-4 ring-amber-50' : 'bg-gray-100 text-gray-600'));
+                ?>
+                <div class="bg-white rounded-2xl p-4 sm:p-5 border border-gray-100 shadow-sm hover:shadow-md transition-all flex items-center justify-between gap-4">
+                    <div class="flex items-center space-x-4 min-w-0">
+                        <!-- Rank Position -->
+                        <span class="w-8 h-8 rounded-full font-serif font-bold text-sm flex items-center justify-center flex-shrink-0 <?= $badgeBg ?>">
+                            <?= $pos ?>
+                        </span>
+
+                        <!-- Artwork Thumbnail -->
+                        <div class="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0">
+                            <img src="../<?= htmlspecialchars($art['image_path']) ?>" alt="<?= htmlspecialchars($art['title']) ?>" class="w-full h-full object-cover">
+                        </div>
+
+                        <!-- Info -->
+                        <div class="min-w-0">
+                            <h3 class="font-serif text-base sm:text-lg font-bold text-gallery-900 truncate">
+                                <?= htmlspecialchars($art['title']) ?>
+                            </h3>
+                            <p class="text-xs text-gray-500">by <?= htmlspecialchars($art['first_name'] . ' ' . $art['last_name']) ?> (@<?= htmlspecialchars($art['username']) ?>)</p>
+                            <span class="inline-block text-[10px] uppercase font-bold text-gallery-gold mt-1 tracking-wider"><?= htmlspecialchars($art['category']) ?></span>
+                        </div>
+                    </div>
+
+                    <!-- Stats / Price -->
+                    <div class="text-right flex-shrink-0">
+                        <div class="flex items-center justify-end space-x-1.5 text-rose-500 font-bold text-sm">
+                            <i class="fas fa-heart text-xs"></i>
+                            <span><?= $art['likes_count'] ?></span>
+                        </div>
+                        <span class="text-xs font-bold text-gallery-900 block mt-1">
+                            <?= $art['price'] > 0 ? '₱' . number_format($art['price'], 2) : 'Exhibition' ?>
+                        </span>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-100 py-6 text-center text-xs text-gray-500">
+        <p>© <?= date('Y') ?> VirtuGallery — Hall of Creative Excellence</p>
+    </footer>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            // Initialize with all rankings visible
-            showAllRankings();
+        function switchRankingTab(tab) {
+            const artistsBtn = document.getElementById('tab-artists-btn');
+            const artworksBtn = document.getElementById('tab-artworks-btn');
+            const secArtists = document.getElementById('section-artists');
+            const secArtworks = document.getElementById('section-artworks');
 
-            // Navigation bar scroll effect
-            const navbar = document.getElementById('navbar');
-            window.addEventListener('scroll', function () {
-                if (window.scrollY > 50) {
-                    navbar.classList.add('scrolled');
-                } else {
-                    navbar.classList.remove('scrolled');
-                }
-            });
+            if (tab === 'artists') {
+                artistsBtn.className = "px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all bg-gallery-800 text-white shadow-sm";
+                artworksBtn.className = "px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:text-gallery-800 transition-all";
+                secArtists.classList.remove('hidden');
+                secArtworks.classList.add('hidden');
+            } else {
+                artworksBtn.className = "px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all bg-gallery-800 text-white shadow-sm";
+                artistsBtn.className = "px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-gray-600 hover:text-gallery-800 transition-all";
+                secArtworks.classList.remove('hidden');
+                secArtists.classList.add('hidden');
+            }
+        }
 
-            // Profile menu toggle
-            const profileIcon = document.querySelector('.profile-icon');
-            const profileMenu = document.querySelector('.profile-menu');
-            const profileContainer = document.querySelector('.profile-container');
-
-            profileIcon.addEventListener('click', function (e) {
-                if (window.innerWidth <= 768) {
-                    e.preventDefault();
-                    profileMenu.classList.toggle('active');
-                }
-            });
-
-            // Close profile menu when clicking outside
-            document.addEventListener('click', function (e) {
-                if (!profileContainer.contains(e.target) && window.innerWidth <= 768) {
-                    profileMenu.classList.remove('active');
-                }
-            });
-
-            // Mobile menu toggle
-            const mobileMenuBtn = document.querySelector('.mobile-menu-btn');
-            const navLinks = document.querySelector('.nav-links');
-            mobileMenuBtn.addEventListener('click', function () {
-                navLinks.classList.toggle('active');
-                const icon = mobileMenuBtn.querySelector('i');
-                if (navLinks.classList.contains('active')) {
-                    icon.classList.remove('fa-bars');
-                    icon.classList.add('fa-times');
-                } else {
-                    icon.classList.remove('fa-times');
-                    icon.classList.add('fa-bars');
-                }
-            });
-
-            // Close mobile menu when clicking a link
-            document.querySelectorAll('.nav-links a').forEach(link => {
-                link.addEventListener('click', function () {
-                    if (navLinks.classList.contains('active')) {
-                        navLinks.classList.remove('active');
-                        const icon = mobileMenuBtn.querySelector('i');
-                        icon.classList.remove('fa-times');
-                        icon.classList.add('fa-bars');
-                    }
-                });
-            });
-
-            // Add artwork functionality
-            document.querySelector('.add-image-btn').addEventListener('click', function () {
-                const placeholder = document.querySelector('.add-work-placeholder');
-                const details = document.querySelector('.artwork-details');
-
-                if (details.style.display === 'none') {
-                    placeholder.style.display = 'none';
-                    details.style.display = 'block';
-                } else {
-                    placeholder.style.display = 'block';
-                    details.style.display = 'none';
-                }
-            });
-
-            // Submit artwork
-            document.querySelector('.submit-artwork-btn').addEventListener('click', function () {
-                const title = document.querySelector('.artwork-title').value;
-                const artist = document.querySelector('.artwork-artist').value;
-
-                if (title && artist) {
-                    alert(`Artwork "${title}" by ${artist} submitted!`);
-                    document.querySelector('.add-work-placeholder').style.display = 'block';
-                    document.querySelector('.artwork-details').style.display = 'none';
-                    document.querySelector('.artwork-title').value = '';
-                    document.querySelector('.artwork-artist').value = '';
-                } else {
-                    alert('Please fill in both title and artist name');
-                }
-            });
-
-            // Follow button functionality
-            document.querySelectorAll('.follow-btn').forEach(btn => {
-                btn.addEventListener('click', function () {
-                    if (this.textContent === 'Follow') {
-                        this.textContent = 'Following';
-                        this.classList.add('following');
-                        showToast('Artist followed successfully');
+        function toggleFollow(artistId, btn) {
+            fetch('../api/toggle_follow.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ followed_id: artistId })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    if (data.is_following) {
+                        btn.innerText = 'Following';
+                        btn.className = 'follow-action-btn flex-shrink-0 px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold transition-all bg-gray-100 text-gray-700 hover:bg-red-50 hover:text-red-600';
                     } else {
-                        this.textContent = 'Follow';
-                        this.classList.remove('following');
-                        showToast('Artist unfollowed');
+                        btn.innerText = 'Follow';
+                        btn.className = 'follow-action-btn flex-shrink-0 px-4 sm:px-5 py-2 rounded-xl text-xs font-semibold transition-all bg-gallery-800 text-white hover:bg-gallery-900';
                     }
-                });
-            });
-
-            // Filter dropdown functionality
-            const filterDropdownBtn = document.getElementById('filter-dropdown-btn');
-            const filterDropdownContent = document.getElementById('filter-dropdown-content');
-
-            filterDropdownBtn.addEventListener('click', function (e) {
-                e.stopPropagation();
-                filterDropdownContent.style.display = filterDropdownContent.style.display === 'block' ? 'none' : 'block';
-                this.classList.toggle('active');
-            });
-
-            // Close dropdown when clicking outside
-            document.addEventListener('click', function () {
-                filterDropdownContent.style.display = 'none';
-                filterDropdownBtn.classList.remove('active');
-            });
-
-            // Prevent dropdown from closing when clicking inside
-            filterDropdownContent.addEventListener('click', function (e) {
-                e.stopPropagation();
-            });
-
-            // Filter type selection
-            document.querySelectorAll('#filter-dropdown-content a').forEach(item => {
-                item.addEventListener('click', function (e) {
-                    e.preventDefault();
-
-                    // Remove active class from all items
-                    document.querySelectorAll('#filter-dropdown-content a').forEach(i => {
-                        i.classList.remove('active');
-                    });
-
-                    // Add active class to clicked item
-                    this.classList.add('active');
-
-                    // Update dropdown button text
-                    const filterType = this.getAttribute('data-filter-type');
-                    let filterText = 'Show All';
-                    if (filterType === 'artists') filterText = 'Artists';
-                    if (filterType === 'artworks') filterText = 'Artworks';
-
-                    filterDropdownBtn.innerHTML = `${filterText} <i class="fas fa-chevron-down"></i>`;
-
-                    // Close dropdown
-                    filterDropdownContent.style.display = 'none';
-                    filterDropdownBtn.classList.remove('active');
-
-                    // Apply filter
-                    applyRankingFilter(filterType);
-                });
-            });
-
-            function applyRankingFilter(filterType) {
-                const artistsRanking = document.getElementById('artists-ranking');
-                const artworksRanking = document.getElementById('artworks-ranking');
-
-                switch (filterType) {
-                    case 'all':
-                        showAllRankings();
-                        break;
-                    case 'artists':
-                        artistsRanking.style.display = 'block';
-                        artworksRanking.style.display = 'none';
-                        break;
-                    case 'artworks':
-                        artistsRanking.style.display = 'none';
-                        artworksRanking.style.display = 'block';
-                        break;
+                } else {
+                    alert(data.message || 'Action failed');
                 }
-            }
-
-            function showAllRankings() {
-                document.getElementById('artists-ranking').style.display = 'block';
-                document.getElementById('artworks-ranking').style.display = 'block';
-            }
-
-            function showToast(message) {
-                const toast = document.getElementById('toast');
-                toast.textContent = message;
-                toast.classList.add('show');
-
-                setTimeout(() => {
-                    toast.classList.remove('show');
-                }, 3000);
-            }
-
-            // Highlight top ranked items
-            function highlightTopRankings() {
-                const artistsList = document.querySelectorAll('#artists-ranking .ranking-item');
-                const artworksList = document.querySelectorAll('#artworks-ranking .ranking-item');
-
-                // Reset all highlights
-                artistsList.forEach(item => item.classList.remove('highlight'));
-                artworksList.forEach(item => item.classList.remove('highlight'));
-
-                // Highlight top 1 in each category
-                if (artistsList.length > 0) artistsList[0].classList.add('highlight');
-                if (artworksList.length > 0) artworksList[0].classList.add('highlight');
-            }
-
-            // Initial highlight
-            highlightTopRankings();
-        });
+            })
+            .catch(() => alert('Network error.'));
+        }
     </script>
 </body>
 
