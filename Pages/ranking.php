@@ -60,6 +60,7 @@ try {
 <html lang="en">
 
 <head>
+    <link rel="icon" type="image/svg+xml" href="../assets/images/logo-icon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Artist & Artwork Rankings — VirtuGallery</title>
@@ -107,7 +108,7 @@ try {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex items-center justify-between h-20">
                 <a href="../index.php" class="flex items-center space-x-3">
-                    <span class="w-10 h-10 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-xl shadow-md">V</span>
+                    <img src="../assets/images/logo-icon.svg" alt="VirtuGallery Emblem" class="w-10 h-10 rounded-xl shadow-md">
                     <span class="font-serif text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
                 </a>
                 <div class="hidden md:flex items-center space-x-8 text-sm font-medium text-gray-600">

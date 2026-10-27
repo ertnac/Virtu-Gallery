@@ -93,6 +93,7 @@ function timeAgoFeed($datetime) {
 <html lang="en">
 
 <head>
+    <link rel="icon" type="image/svg+xml" href="../assets/images/logo-icon.svg">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
     <title>Community Feed — VirtuGallery</title>
@@ -150,7 +151,7 @@ function timeAgoFeed($datetime) {
                 
                 <!-- Logo -->
                 <a href="../index.php" class="flex items-center space-x-2.5">
-                    <span class="w-9 h-9 rounded-full bg-gallery-800 text-gallery-gold flex items-center justify-center font-serif font-bold text-lg shadow-sm">V</span>
+                    <img src="../assets/images/logo-icon.svg" alt="VirtuGallery Emblem" class="w-9 h-9 rounded-lg shadow-sm">
                     <span class="font-serif text-xl sm:text-2xl font-bold tracking-tight text-gallery-900">Virtu<span class="text-gallery-gold font-light italic">Gallery</span></span>
                 </a>
 

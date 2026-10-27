@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 200" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient for Icon -->
+    <linearGradient id="logoBgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#243321"/>
+      <stop offset="100%" stop-color="#121811"/>
+    </linearGradient>
+
+    <!-- Metallic Gold Gradient -->
+    <linearGradient id="logoGoldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fdf3cd"/>
+      <stop offset="30%" stop-color="#e2bf65"/>
+      <stop offset="60%" stop-color="#c5a059"/>
+      <stop offset="100%" stop-color="#9d7632"/>
+    </linearGradient>
+
+    <filter id="logoShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="6" stdDeviation="8" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- ================= ICON EMBLEM ================= -->
+  <g transform="translate(20, 20)">
+    <!-- Base Rounded Square -->
+    <rect x="0" y="0" width="160" height="160" rx="36" fill="url(#logoBgGrad)" stroke="url(#logoGoldGrad)" stroke-width="2.5" filter="url(#logoShadow)"/>
+
+    <!-- Inner Frame Line -->
+    <rect x="12" y="12" width="136" height="136" rx="28" fill="none" stroke="url(#logoGoldGrad)" stroke-width="1" stroke-opacity="0.4" stroke-dasharray="4 3"/>
+
+    <!-- Rotated Diamond Canvas -->
+    <polygon points="80,30 126,80 80,130 34,80" fill="none" stroke="url(#logoGoldGrad)" stroke-width="1.5" stroke-opacity="0.5"/>
+
+    <!-- Monogram 'V' Left Stem -->
+    <path d="M 44 48 C 50 48, 55 52, 59 60 L 80 120 L 73 120 L 38 56 C 36 52, 34 50, 30 48 Z" fill="url(#logoGoldGrad)"/>
+
+    <!-- Monogram 'V' Right Brush Sweep -->
+    <path d="M 124 48 C 119 48, 114 53, 108 62 L 80 122 L 92 122 L 118 70 C 122 62, 126 56, 128 54 Z" fill="url(#logoGoldGrad)"/>
+
+    <!-- Center Accent Diamond -->
+    <polygon points="80,62 87,72 80,82 73,72" fill="url(#logoGoldGrad)"/>
+    <circle cx="80" cy="72" r="1.5" fill="#ffffff"/>
+  </g>
+
+  <!-- ================= BRAND TYPOGRAPHY ================= -->
+  <g transform="translate(210, 118)">
+    <!-- 'Virtu' in Luxury Bold Serif -->
+    <text font-family="'Playfair Display', Georgia, serif" font-size="78" font-weight="700" fill="#172015" letter-spacing="-1">Virtu</text>
+    
+    <!-- 'Gallery' in Refined Gold Italic Serif -->
+    <text x="210" y="0" font-family="'Playfair Display', Georgia, serif" font-size="78" font-weight="400" font-style="italic" fill="url(#logoGoldGrad)" letter-spacing="0">Gallery</text>
+  </g>
+
+  <!-- Subtitle Tagline -->
+  <g transform="translate(215, 154)">
+    <text font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-size="14" font-weight="600" fill="#717a6e" letter-spacing="6">FINE ART &amp; CONTEMPORARY COLLECTIVE</text>
+  </g>
+
+  <!-- Minimal Decorative Hairline -->
+  <line x1="680" y1="149" x2="840" y2="149" stroke="url(#logoGoldGrad)" stroke-width="1.2" stroke-opacity="0.5"/>
+</svg>
