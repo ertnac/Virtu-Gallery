@@ -141,13 +141,13 @@ function initSqliteDatabase($pdo, $needInit = false) {
         
         $pdo->exec("
             INSERT INTO users (id, first_name, middle_name, last_name, suffix, email, password, username, phone, municipality, province, bio, website, profile_picture) VALUES
-            (1, 'Cedrick', '', 'Albuero', '', 'jamesclarencecantre@gmail.com', '$defaultPassword', 'ertnac', '+63 912 345 6789', 'Alaminos', 'Laguna', 'Contemporary visual artist and painter based in Laguna.', 'https://virtugallery.art', 'Pages/profile_image/profile_cantre_68438a5c28574.jpg'),
+            (1, 'Alex', '', 'Rivera', '', 'alex.rivera@example.com', '$defaultPassword', 'alexrivera', '+63 912 345 6789', 'Alaminos', 'Laguna', 'Contemporary visual artist and painter based in Laguna.', 'https://virtugallery.art', 'Pages/profile_image/default.jpg'),
             (2, 'Jane Xyrel', 'F', 'Ramos', '', 'ramosjanexyrel@gmail.com', '$defaultPassword', 'leryx', '+63 998 765 4321', 'Alaminos', 'Laguna', 'Digital artist and illustrator passionate about fantasy landscapes.', 'https://virtugallery.art', 'Pages/profile_image/profile_jeniper_684659615942f.jpg'),
             (3, 'Diana', '', 'Gucela', '', 'dianagucela@gmail.com', '$defaultPassword', 'diana', '+63 911 223 3445', 'San Pablo', 'Laguna', 'Sculptor and fine art creator specializing in organic materials.', 'https://virtugallery.art', 'Pages/profile_image/profile_diana123_683fa9d729ff6.jpg'),
             (4, 'Shanaya', '', 'Concibido', '', 'shanaya@virtugallery.com', '$defaultPassword', 'shaneyney', '+63 955 667 7889', 'San Pablo', 'Laguna', 'Gallery administrator and fine arts curator.', 'https://virtugallery.art', 'Pages/profile_image/profile_shaneyney_68464cc8b8d9f.jpg');
 
             INSERT INTO artists (id, user_id, stage_name, art_style, portfolio_link, verified) VALUES
-            (1, 1, 'Cedrick Art', 'Oil & Acrylic on Canvas', 'https://virtugallery.art/ertnac', 1),
+            (1, 1, 'Rivera Fine Arts', 'Oil & Acrylic on Canvas', 'https://virtugallery.art/alexrivera', 1),
             (2, 2, 'Leryx Studio', 'Digital Illustration', 'https://virtugallery.art/leryx', 1),
             (3, 3, 'Diana Studio', 'Contemporary Sculptures', 'https://virtugallery.art/diana', 1);
 

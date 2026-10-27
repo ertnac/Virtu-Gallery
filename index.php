@@ -303,7 +303,7 @@ try {
                                 <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex flex-col justify-end p-5 text-white">
                                     <span class="text-xs uppercase tracking-widest text-gallery-gold font-semibold">Spotlight Collection</span>
                                     <h3 id="hero-showcase-title" class="font-serif text-xl sm:text-2xl font-bold text-white"><?= !empty($trendingArtworks[0]['title']) ? htmlspecialchars($trendingArtworks[0]['title']) : 'Monalisa Reimagined' ?></h3>
-                                    <p id="hero-showcase-artist" class="text-sm text-gray-200">by <?= !empty($trendingArtworks[0]['first_name']) ? htmlspecialchars($trendingArtworks[0]['first_name'] . ' ' . $trendingArtworks[0]['last_name']) : 'Cedrick Albuero' ?></p>
+                                    <p id="hero-showcase-artist" class="text-sm text-gray-200">by <?= !empty($trendingArtworks[0]['first_name']) ? htmlspecialchars($trendingArtworks[0]['first_name'] . ' ' . $trendingArtworks[0]['last_name']) : 'Featured Artist' ?></p>
                                 </div>
                             </div>
                             
@@ -590,7 +590,7 @@ try {
                 <form id="form-login" onsubmit="submitLogin(event)" class="mt-6 space-y-4">
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Email or Username</label>
-                        <input type="text" id="login-identifier" required placeholder="ertnac or james@example.com" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none transition-colors" />
+                        <input type="text" id="login-identifier" required placeholder="Username or email address" class="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:border-gallery-800 focus:outline-none transition-colors" />
                     </div>
                     <div>
                         <label class="block text-xs font-semibold text-gray-700 uppercase tracking-wider mb-1">Password</label>
